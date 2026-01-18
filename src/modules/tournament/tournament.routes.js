@@ -13,15 +13,11 @@ const upload = multer({ storage });
 /* =====================
    TOURNAMENT CRUD
    ===================== */
-router.post("/",
-   upload.fields([
-      { name: "logo", maxCount: 1 },
-      { name: "banner", maxCount: 1 },
-   ]),
-   tournamentController.createTournament
-);
+router.post("/", tournamentController.createTournament);
 
 router.get("/", tournamentController.listTournaments);
+router.get("/my", tournamentController.getMyTournaments);
+router.get("/public", tournamentController.getPublicTournaments);
 router.get("/:tournamentId", tournamentController.getTournament);
 router.put("/:tournamentId", tournamentController.updateTournament);
 router.delete("/:tournamentId", tournamentController.deleteTournament);

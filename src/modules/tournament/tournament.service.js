@@ -243,24 +243,28 @@ export const createTournament = async (data) => {
                 publicJoinCode: data.isPublic ? generateCode() : null,
                 matchMakingAt: data.matchMakingAt ?? null,
                 status: "PUBLISHED",
+                logo: data.logoUrl ?? null,
+                banner: data.bannerUrl ?? null,
+                city: data.city ?? null,
+                organizerId: data.organizerId,
 
-                location: {
-                    connectOrCreate: {
+                locations: {
+                    connectOrCreate: data.locations.map((loc) => ({
                         where: {
                             name_address: {
-                                name: data.location.name,
-                                address: data.location.address,
+                                name: loc.name,
+                                address: loc.address,
                             },
                         },
                         create: {
-                            name: data.location.name,
-                            address: data.location.address,
-                            city: data.location.city ?? null,
-                            state: data.location.state ?? null,
-                            country: data.location.country ?? "India",
-                            zipCode: data.location.zipCode ?? null,
+                            name: loc.name,
+                            address: loc.address,
+                            city: loc.city ?? null,
+                            state: loc.state ?? null,
+                            country: loc.country ?? "India",
+                            zipCode: loc.zipCode ?? null,
                         },
-                    },
+                    })),
                 },
             },
         });
@@ -295,84 +299,40 @@ export const createTournament = async (data) => {
         return tournament;
     });
 
-    /* =====================
-       ASSETS (BEST EFFORT)
-    ===================== */
-
-    const assetCreates = [];
-
-    // LOGO
-    if (data.logo) {
-        try {
-            const logoUrl = await uploadToS3({
-                buffer: data.logo.buffer,
-                mimetype: data.logo.mimetype,
-                key: `public/tournament-${tournament.id}-logo-${Date.now()}`,
-            });
-
-            assetCreates.push({
-                entityType: "TOURNAMENT",
-                entityId: tournament.id,
-                type: "LOGO",
-                url: logoUrl,
-            });
-        } catch (err) {
-            console.error("Logo upload failed:", err.message);
-        }
-    }
-
-    // BANNER
-    if (data.banner) {
-        try {
-            const bannerUrl = await uploadToS3({
-                buffer: data.banner.buffer,
-                mimetype: data.banner.mimetype,
-                key: `public/tournament-${tournament.id}-banner-${Date.now()}`,
-            });
-
-            assetCreates.push({
-                entityType: "TOURNAMENT",
-                entityId: tournament.id,
-                type: "BANNER",
-                url: bannerUrl,
-            });
-        } catch (err) {
-            console.error("Banner upload failed:", err.message);
-        }
-    }
-
-    if (assetCreates.length) {
-        await prisma.asset.createMany({ data: assetCreates });
-    }
-
-    /* =====================
-       RETURN TOURNAMENT + ASSETS
-    ===================== */
-
-    const assets = await prisma.asset.findMany({
-        where: {
-            entityType: "TOURNAMENT",
-            entityId: tournament.id,
-        },
-    });
-
-    return {
-        ...tournament,
-        assets: {
-            logo: assets.find((a) => a.type === "LOGO") || null,
-            banner: assets.find((a) => a.type === "BANNER") || null,
-        },
-    };
+  
+   
+   
+    return tournament;
 };
 
 
-export const listTournaments = async () => {
+export const listTournaments = async (requesterId = null) => {
     const tournaments = await prisma.tournament.findMany({
         include: {
-            location: true,
+            locations: true,
+            organizer: true,
             rules: {
                 include: {
                     reportingSlots: true,
+                },
+            },
+            participants: requesterId
+                ? {
+                      where: {
+                          OR: [
+                              { playerId: requesterId },
+                              {
+                                  team: {
+                                      members: { some: { userId: requesterId } },
+                                  },
+                              },
+                          ],
+                      },
+                  }
+                : false,
+            _count: {
+                select: {
+                    participants: true,
                 },
             },
         },
@@ -381,47 +341,138 @@ export const listTournaments = async () => {
         },
     });
 
-    const tournamentIds = tournaments.map(t => t.id);
-
-    const assets = await prisma.asset.findMany({
-        where: {
-            entityType: "TOURNAMENT",
-            entityId: { in: tournamentIds },
-            type: { in: ["LOGO", "BANNER"] },
-        },
-    });
-
-    const assetMap = {};
-    assets.forEach(asset => {
-        if (!assetMap[asset.entityId]) {
-            assetMap[asset.entityId] = {};
-        }
-        assetMap[asset.entityId][asset.type] = asset;
-    });
-
-    return tournaments.map(tournament => ({
-        ...tournament,
-        logo: assetMap[tournament.id]?.LOGO || null,
-        banner: assetMap[tournament.id]?.BANNER || null,
+    return tournaments.map((t) => ({
+        ...t,
+        isOrganizer: requesterId ? t.organizerId === requesterId : false,
+        isParticipant: requesterId ? t.participants.length > 0 : false,
     }));
 };
 
-export const getTournament = async (id) => {
-    const tournament = await prisma.tournament.findUnique({
-        where: { id },
+export const getPublicTournaments = async (requesterId = null) => {
+    const tournaments = await prisma.tournament.findMany({
+        where: {
+            isPublic: true,
+            status: "PUBLISHED", // Only show active/published ones
+        },
         include: {
-            location: true,
+            locations: true,
+            organizer: true,
             rules: {
                 include: {
                     reportingSlots: true,
                 },
             },
-            participants: true,
+            participants: requesterId
+                ? {
+                      where: {
+                          OR: [
+                              { playerId: requesterId },
+                              {
+                                  team: {
+                                      members: { some: { userId: requesterId } },
+                                  },
+                              },
+                          ],
+                      },
+                  }
+                : false,
+            _count: {
+                select: {
+                    participants: true,
+                },
+            },
+        },
+        orderBy: {
+            startDate: "asc", // Show upcoming ones first
+        },
+    });
+
+    return tournaments.map((t) => ({
+        ...t,
+        isOrganizer: requesterId ? t.organizerId === requesterId : false,
+        isParticipant: requesterId ? t.participants.length > 0 : false,
+    }));
+};
+
+export const getMyTournaments = async (userId) => {
+    const tournaments = await prisma.tournament.findMany({
+        where: {
+            organizerId: userId,
+        },
+        include: {
+            locations: true,
+            rules: {
+                include: {
+                    reportingSlots: true,
+                },
+            },
+            participants: {
+                where: {
+                    OR: [
+                        { playerId: userId },
+                        {
+                            team: {
+                                members: { some: { userId: userId } },
+                            },
+                        },
+                    ],
+                },
+            },
+            _count: {
+                select: {
+                    participants: true,
+                },
+            },
+        },
+        orderBy: {
+            createdAt: "desc",
+        },
+    });
+
+    return tournaments.map((t) => ({
+        ...t,
+        isOrganizer: true, // It is my tournament
+        isParticipant: t.participants.length > 0,
+    }));
+};
+
+export const getTournament = async (id, requesterId = null) => {
+    const tournament = await prisma.tournament.findUnique({
+        where: { id },
+        include: {
+            locations: true,
+            rules: {
+                include: {
+                    reportingSlots: true,
+                },
+            },
+            participants: {
+                include: {
+                    player: {
+                        select: {
+                            id: true,
+                            name: true,
+                            profileImage: true,
+                        },
+                    },
+                    team: {
+                        include: {
+                            members: true,
+                        },
+                    },
+                },
+            },
             matches: {
                 include: {
                     participants: {
                         include: {
-                            user: true,
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    profileImage: true,
+                                },
+                            },
                         },
                     },
                 },
@@ -433,22 +484,26 @@ export const getTournament = async (id) => {
         throw new Error("TOURNAMENT_NOT_FOUND");
     }
 
-    const assets = await prisma.asset.findMany({
-        where: {
-            entityType: "TOURNAMENT",
-            entityId: id,
-        },
-    });
+    // ✅ Virtual fields
+    const isOrganizer = requesterId === tournament.organizerId;
 
-    const formattedAssets = {
-        logo: assets.find(a => a.type === "LOGO") || null,
-        banner: assets.find(a => a.type === "BANNER") || null,
-        // others: assets.filter(a => !["LOGO", "BANNER"].includes(a.type)),
-    };
+    let isParticipant = false;
+    if (requesterId) {
+        isParticipant = tournament.participants.some((p) => {
+            // Check direct player participation
+            if (p.playerId === requesterId) return true;
+            // Check team participation (if user is in the team)
+            if (p.teamId && p.team?.members?.some((m) => m.userId === requesterId)) {
+                return true;
+            }
+            return false;
+        });
+    }
 
     return {
         ...tournament,
-        assets: formattedAssets,
+        isOrganizer,
+        isParticipant,
     };
 };
 
@@ -483,6 +538,8 @@ export const updateTournament = async (id, data) => {
             isPublic: data.isPublic,
             entryFee: data.entryFee,
             scheduleType: data.scheduleType,
+            logo: data.logo,
+            banner: data.banner,
         },
     });
 };

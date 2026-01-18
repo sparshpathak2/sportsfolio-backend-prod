@@ -175,10 +175,7 @@ export const verifyOtp = async (req, res) => {
         return res.json({
             success: true,
             sessionId: session.id,
-            user: {
-                id: user.id,
-                phone: user.phone,
-            },
+            user
         });
     } catch (error) {
         console.error("Verify OTP error:", error);

@@ -9,6 +9,7 @@ export const getUserProfile = async (userId) => {
             username: true,
             phone: true,
             city: true,
+            profileImage: true,
 
             favoriteTeams: {
                 select: {
@@ -16,13 +17,7 @@ export const getUserProfile = async (userId) => {
                         select: {
                             id: true,
                             name: true,
-                            sport: {
-                                select: {
-                                    id: true,
-                                    code: true,
-                                    name: true,
-                                },
-                            },
+                            sportCode: true,
                         },
                     },
                 },
@@ -52,6 +47,7 @@ export const getUserProfile = async (userId) => {
             username: user.username,
             phone: user.phone,
             city: user.city,
+            profileImage: user.profileImage,
         },
         favorites: {
             teams: user.favoriteTeams.map((fav) => fav.team),
@@ -62,10 +58,10 @@ export const getUserProfile = async (userId) => {
 
 
 export const updateUserProfile = async (userId, data) => {
-    const { name, username, city } = data;
+    const { name, username, city, profileImage } = data;
 
     // Optional: prevent empty update
-    if (!name && !username && !city) {
+    if (!name && !username && !city && !profileImage) {
         throw new Error("NO_FIELDS_TO_UPDATE");
     }
 
@@ -89,6 +85,7 @@ export const updateUserProfile = async (userId, data) => {
             ...(name !== undefined && { name }),
             ...(username !== undefined && { username }),
             ...(city !== undefined && { city }),
+            ...(profileImage !== undefined && { profileImage }),
         },
         select: {
             id: true,
@@ -96,6 +93,7 @@ export const updateUserProfile = async (userId, data) => {
             username: true,
             phone: true,
             city: true,
+            profileImage: true,
         },
     });
 
