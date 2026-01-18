@@ -98,7 +98,7 @@ app.use("/api/matches", matchRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/sports", sportRoutes);
 app.use("/api/assets", assetRoutes);
- 
+
 
 /* ======================================================
    9️⃣ 404 HANDLER
@@ -125,6 +125,6 @@ app.use((err, req, res, next) => {
 /* ======================================================
    🚀 START SERVER
    ====================================================== */
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, "127.0.0.1", () => {
     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
 });
