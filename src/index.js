@@ -92,6 +92,7 @@ app.use(authMiddleware);
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/profiles", profileRoutes);
+app.use("/api/assets", assetRoutes);
 // app.use("/api/favourites", favouriteRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/tournaments", tournamentRoutes);
@@ -125,6 +126,6 @@ app.use((err, req, res, next) => {
 /* ======================================================
    🚀 START SERVER
    ====================================================== */
-app.listen(PORT, "127.0.0.1", () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
 });
