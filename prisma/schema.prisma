@@ -66,6 +66,12 @@ enum InvitationStatus {
   DECLINED
 }
 
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 enum TeamMemberRole {
   OWNER // Creator / admin of the team
   PLAYER // Actively plays matches
@@ -115,6 +121,7 @@ model User {
   tournamentParticipations TournamentParticipant[] @relation("PlayerParticipation")
   invitations              Invitation[]
   matchParticipations      MatchParticipant[]
+  requests                 TournamentRequest[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -156,6 +163,7 @@ model Team {
   sportCode SportCode
 
   logo      String?
+  city      String?
   isTemporary Boolean @default(false)
 
   members   TeamMember[]
@@ -163,6 +171,7 @@ model Team {
 
   tournamentParticipations TournamentParticipant[] @relation("TeamParticipation")
   invitations              Invitation[]
+  requests                 TournamentRequest[]
 
   createdAt DateTime @default(now())
 }
@@ -294,27 +303,22 @@ model Tournament {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
   invitations Invitation[]
+  requests    TournamentRequest[]
 }
 
 model TournamentRules {
   id           String @id @default(cuid())
   tournamentId String @unique
-
   playAreas Int
-
   partsPerMatch Int
   gameType      GameType
-
   maxParticipants Int    // players for singles, teams for doubles
   minParticipants Int?
-
   groupsCount   Int?
   teamsPerGroup Int?
-
   enableQuarterFinal Boolean @default(false)
   enableSemiFinal    Boolean @default(false)
   enableFinal        Boolean @default(true)
-
   daysOfWeek  WeekDay[]
   extraConfig Json?
 
@@ -478,4 +482,27 @@ model Location {
   matches     Match[]
 
   @@unique([name, address], name: "name_address")
+}
+
+model TournamentRequest {
+  id           String        @id @default(cuid())
+  tournamentId String
+  tournament   Tournament    @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  // Requesting entity
+  userId       String?
+  user         User?         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamId       String?
+  team         Team?         @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  status       RequestStatus @default(PENDING)
+  message      String?       // Optional note from requester
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@unique([tournamentId, userId, teamId], name: "unique_tournament_request")
+  @@index([tournamentId])
+  @@index([userId])
+  @@index([teamId])
 }

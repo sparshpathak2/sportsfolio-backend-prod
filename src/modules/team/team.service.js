@@ -4,7 +4,7 @@ import { getRequesterRole, validateRole } from "../../utils/checkUserRole.utils.
 /* =====================
    CREATE TEAM
    ===================== */
-export const createTeam = async ({ name, sportCode, ownerUserId }) => {
+export const createTeam = async ({ name, sportCode, ownerUserId, logo, city }) => {
     if (!name) throw new Error("TEAM_NAME_REQUIRED");
     if (!sportCode) throw new Error("SPORT_REQUIRED");
 
@@ -13,6 +13,8 @@ export const createTeam = async ({ name, sportCode, ownerUserId }) => {
             data: {
                 name,
                 sportCode, // ✅ direct enum usage
+                logo: logo || null,
+                city: city || null,
             },
         });
 

@@ -2,12 +2,15 @@ import * as teamService from "./team.service.js";
 
 export const createTeam = async (req, res) => {
     try {
-        const { name, sportCode, ownerUserId } = req.body;
+        const { name, sportCode, logo, city } = req.body;
+        const ownerUserId = req.user.id; // ✅ Always use authenticated user as owner
 
         const team = await teamService.createTeam({
             name,
             sportCode,
             ownerUserId,
+            logo,
+            city,
         });
 
         res.status(201).json({

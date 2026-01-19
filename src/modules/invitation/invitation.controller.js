@@ -1,12 +1,11 @@
 import * as invitationService from "./invitation.service.js";
-import prisma from "../../lib/prisma.js"
 
 /* =====================
    INVITE TO TOURNAMENT / MATCH
    ===================== */
 export const invite = async (req, res) => {
     try {
-        const { tournamentId, matchId } = req.params; // flexible
+        const { tournamentId, matchId } = req.params;
         const { type, playerId, teamId } = req.body;
 
         if (!type) return res.status(400).json({ message: "INVITATION_TYPE_REQUIRED" });
@@ -23,7 +22,7 @@ export const invite = async (req, res) => {
             success: true,
             message: tournamentId ? "TOURNAMENT_INVITATION_SENT" : "MATCH_INVITATION_SENT",
             data: invitation,
-        });
+        }); 
     } catch (err) {
         console.error("Invite Error:", err);
         res.status(400).json({
@@ -33,11 +32,13 @@ export const invite = async (req, res) => {
     }
 };
 
-
+/* =====================
+   ACCEPT INVITATION
+   ===================== */
 export const acceptInvitation = async (req, res) => {
     try {
         const { invitationId } = req.params;
-        const userId = req.user.id; // assuming auth middleware sets this
+        const userId = req.user.id;
 
         if (!invitationId) {
             return res.status(400).json({
@@ -46,24 +47,23 @@ export const acceptInvitation = async (req, res) => {
             });
         }
 
-        const result = await invitationService.acceptInvitation({
-            invitationId,
-            userId,
-        });
+        const result = await invitationService.acceptInvitation(invitationId, userId);
 
         return res.status(200).json({
             success: true,
             data: result,
         });
     } catch (error) {
-        return res.status(400).json({
+        return res.status(400).json({ 
             success: false,
             message: error.message,
         });
     }
 };
 
-
+/* =====================
+   LIST INVITATIONS
+   ===================== */
 export const listInvitations = async (req, res) => {
     try {
         const invitations = await invitationService.listInvitations();
@@ -76,19 +76,10 @@ export const listInvitations = async (req, res) => {
     }
 };
 
-
 export const listInvitationsByUserId = async (req, res) => {
     try {
-        const { userId } = req.params;
-
-        if (!userId) {
-            return res
-                .status(400)
-                .json({ success: false, message: "USER_ID_REQUIRED" });
-        }
-
+        const userId = req.user.id;
         const invitations = await invitationService.listInvitationsByUserId(userId);
-
         res.json({ success: true, data: invitations });
     } catch (error) {
         res.status(500).json({
@@ -98,31 +89,20 @@ export const listInvitationsByUserId = async (req, res) => {
     }
 };
 
-
 export const listInvitationsByTargetId = async (req, res) => {
     try {
         const { tournamentId, matchId } = req.params;
 
         if (!tournamentId && !matchId) {
-            return res.status(400).json({ message: "TARGET_ID_REQUIRED" });
+            return res.status(400).json({
+                success: false,
+                message: "TARGET_ID_REQUIRED",
+            });
         }
 
-        const whereClause = tournamentId
-            ? { tournamentId }
-            : { matchId };
+        const invitations = await invitationService.listInvitationsByTargetId({ tournamentId, matchId });
 
-        const invitations = await prisma.invitation.findMany({
-            where: whereClause,
-            include: {
-                player: true,
-                team: true,
-            },
-            orderBy: {
-                createdAt: "desc",
-            },
-        });
-
-        res.status(200).json({
+        res.json({
             success: true,
             data: invitations,
         });
@@ -135,40 +115,18 @@ export const listInvitationsByTargetId = async (req, res) => {
     }
 };
 
-
+/* =====================
+   DELETE INVITATION
+   ===================== */
 export const deleteInvitation = async (req, res) => {
     try {
-        const { id } = req.params;
-
-        if (!id) {
-            return res
-                .status(400)
-                .json({ success: false, message: "INVITATION_ID_REQUIRED" });
-        }
-
-        await invitationService.deleteInvitation(id);
-
-        res.json({
-            success: true,
-            message: "INVITATION_DELETED",
-        });
+        const { invitationId } = req.params;
+        await invitationService.deleteInvitation(invitationId);
+        res.json({ success: true, message: "INVITATION_DELETED" });
     } catch (error) {
-        res.status(400).json({
+        res.status(500).json({
             success: false,
             message: error.message,
         });
-    }
-};
-
-
-export const listInvitationsByTournamentId = async (req, res) => {
-    try {
-        const invitations =
-            await invitationService.listInvitationsByTournamentId(
-                req.params.tournamentId
-            );
-        res.json({ success: true, data: invitations });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
     }
 };

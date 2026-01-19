@@ -13,6 +13,7 @@ import matchRoutes from "./modules/match/match.routes.js";
 import locationRoutes from "./modules/location/location.routes.js";
 import sportRoutes from "./modules/sport/sport.routes.js";
 import assetRoutes from "./modules/asset/asset.routes.js";
+import requestRoutes from "./modules/request/request.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -97,8 +98,7 @@ app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/matches", matchRoutes);
 app.use("/api/locations", locationRoutes);
 app.use("/api/sports", sportRoutes);
-app.use("/api/assets", assetRoutes);
-
+app.use("/api/requests", requestRoutes);
 
 /* ======================================================
    9️⃣ 404 HANDLER

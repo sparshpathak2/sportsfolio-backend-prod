@@ -1,496 +1,733 @@
 {
-	"info": {
-		"_postman_id": "83c7482b-8772-4d1a-96e5-4f7f6f59871e",
-		"name": "Sportsfolio Backend API",
-		"description": "Complete collection for Sportsfolio Backend including Auth, Teams, Tournaments, Matches, and more.",
-		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-	},
-	"item": [
-		{
-			"name": "Auth",
-			"item": [
-				{
-					"name": "Request OTP",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"phone\": \"+919876543210\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/auth/request-otp",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"auth",
-								"request-otp"
-							]
-						}
-					}
-				},
-				{
-					"name": "Verify OTP",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"phone\": \"+919876543210\",\n    \"code\": \"123456\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/auth/verify-otp",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"auth",
-								"verify-otp"
-							]
-						}
-					}
-				},
-				{
-					"name": "Verify Session",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/auth/verify-session",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"auth",
-								"verify-session"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "User & Profile",
-			"item": [
-				{
-					"name": "Get Profile",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/profiles/:userId",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"profiles",
-								":userId"
-							],
-							"variable": [
-								{
-									"key": "userId",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Update Profile",
-					"request": {
-						"method": "PATCH",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"John Doe\",\n    \"city\": \"Mumbai\",\n    \"profileImage\": \"url...\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/profiles",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"profiles"
-							]
-						}
-					}
-				},
-				{
-					"name": "List Users",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/users",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"users"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Tournaments",
-			"item": [
-				{
-					"name": "List All Tournaments",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/tournaments",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"tournaments"
-							]
-						}
-					}
-				},
-				{
-					"name": "My Tournaments",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/tournaments/my",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"tournaments",
-								"my"
-							]
-						}
-					}
-				},
-				{
-					"name": "Public Tournaments",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/tournaments/public",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"tournaments",
-								"public"
-							]
-						}
-					}
-				},
-				{
-					"name": "Create Tournament",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"Elite Badminton League\",\n    \"sportCode\": \"BADMINTON\",\n    \"tournamentType\": \"KNOCKOUT\",\n    \"startDate\": \"2026-02-15T09:00:00Z\",\n    \"city\": \"Mumbai\",\n    \"isPublic\": true,\n    \"entryFee\": 500,\n    \"locations\": [\n        {\n            \"name\": \"Stadium A\",\n            \"address\": \"Worli\"\n        }\n    ],\n    \"rules\": {\n        \"playAreas\": 2,\n        \"partsPerMatch\": 3,\n        \"gameType\": \"SINGLES\",\n        \"maxParticipants\": 16\n    }\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/tournaments",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"tournaments"
-							]
-						}
-					}
-				},
-				{
-					"name": "Get Tournament Details",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/tournaments/:tournamentId",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"tournaments",
-								":tournamentId"
-							],
-							"variable": [
-								{
-									"key": "tournamentId",
-									"value": ""
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Teams",
-			"item": [
-				{
-					"name": "Create Team",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"Mumbai Rockets\",\n    \"sportCode\": \"BADMINTON\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/teams",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"teams"
-							]
-						}
-					}
-				},
-				{
-					"name": "List Teams",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/teams?sportCode=BADMINTON",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"teams"
-							],
-							"query": [
-								{
-									"key": "sportCode",
-									"value": "BADMINTON"
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Matches",
-			"item": [
-				{
-					"name": "Record Match Event",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"type\": \"SCORE_UPDATE\",\n    \"payload\": {\n        \"p1Score\": 21,\n        \"p2Score\": 19\n    }\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/matches/:matchId/events/record",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"matches",
-								":matchId",
-								"events",
-								"record"
-							],
-							"variable": [
-								{
-									"key": "matchId",
-									"value": ""
-								}
-							]
-						}
-					}
-				},
-				{
-					"name": "Start Match",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/matches/:matchId/start",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"matches",
-								":matchId",
-								"start"
-							],
-							"variable": [
-								{
-									"key": "matchId",
-									"value": ""
-								}
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Assets",
-			"item": [
-				{
-					"name": "Upload Image",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "formdata",
-							"formdata": [
-								{
-									"key": "image",
-									"type": "file",
-									"src": []
-								}
-							]
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/assets/upload",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"assets",
-								"upload"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Locations",
-			"item": [
-				{
-					"name": "List Locations",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/locations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"locations"
-							]
-						}
-					}
-				},
-				{
-					"name": "Create Location",
-					"request": {
-						"method": "POST",
-						"header": [],
-						"body": {
-							"mode": "raw",
-							"raw": "{\n    \"name\": \"Olympic Stadium\",\n    \"address\": \"Worli Naka\",\n    \"city\": \"Mumbai\"\n}",
-							"options": {
-								"raw": {
-									"language": "json"
-								}
-							}
-						},
-						"url": {
-							"raw": "{{baseUrl}}/api/locations",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"locations"
-							]
-						}
-					}
-				}
-			]
-		},
-		{
-			"name": "Sports",
-			"item": [
-				{
-					"name": "List Sports",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{baseUrl}}/api/sports",
-							"host": [
-								"{{baseUrl}}"
-							],
-							"path": [
-								"api",
-								"sports"
-							]
-						}
-					}
-				}
-			]
-		}
-	],
-	"variable": [
-		{
-			"key": "baseUrl",
-			"value": "http://localhost:3000",
-			"type": "string"
-		}
-	]
+    "info": {
+        "_postman_id": "83c7482b-8772-4d1a-96e5-4f7f6f59871e",
+        "name": "Sportsfolio Backend API",
+        "description": "Complete collection for Sportsfolio Backend including Auth, Teams, Tournaments, Matches, and more.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Request OTP",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"+919876543210\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/request-otp",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "request-otp"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Verify OTP",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"+919876543210\",\n    \"code\": \"123456\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/verify-otp",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "verify-otp"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Verify Session",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/auth/verify-session",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "auth",
+                                "verify-session"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "User & Profile",
+            "item": [
+                {
+                    "name": "Get Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/profiles/:userId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "profiles",
+                                ":userId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "userId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Profile",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"John Doe\",\n    \"city\": \"Mumbai\",\n    \"profileImage\": \"url...\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/profiles",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "profiles"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Users",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Tournaments",
+            "item": [
+                {
+                    "name": "List All Tournaments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "My Tournaments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/my",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                "my"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Public Tournaments",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/public",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                "public"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Tournament",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Elite Badminton League\",\n    \"sportCode\": \"BADMINTON\",\n    \"tournamentType\": \"KNOCKOUT\",\n    \"startDate\": \"2026-02-15T09:00:00Z\",\n    \"city\": \"Mumbai\",\n    \"isPublic\": true,\n    \"entryFee\": 500,\n    \"locations\": [\n        {\n            \"name\": \"Stadium A\",\n            \"address\": \"Worli\"\n        }\n    ],\n    \"rules\": {\n        \"playAreas\": 2,\n        \"partsPerMatch\": 3,\n        \"gameType\": \"SINGLES\",\n        \"maxParticipants\": 16\n    }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Tournament Details",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                ":tournamentId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "tournamentId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Teams",
+            "item": [
+                {
+                    "name": "Create Team",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Mumbai Rockets\",\n    \"sportCode\": \"BADMINTON\",\n    \"logo\": \"https://your-s3-bucket.s3.amazonaws.com/logos/team1.png\",\n    \"city\": \"Mumbai\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Teams",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams?sportCode=BADMINTON",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams"
+                            ],
+                            "query": [
+                                {
+                                    "key": "sportCode",
+                                    "value": "BADMINTON"
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Matches",
+            "item": [
+                {
+                    "name": "Record Match Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"SCORE_UPDATE\",\n    \"payload\": {\n        \"p1Score\": 21,\n        \"p2Score\": 19\n    }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches/:matchId/events/record",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "matches",
+                                ":matchId",
+                                "events",
+                                "record"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "matchId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Start Match",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches/:matchId/start",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "matches",
+                                ":matchId",
+                                "start"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "matchId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Assets",
+            "item": [
+                {
+                    "name": "Upload Image",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "formdata",
+                            "formdata": [
+                                {
+                                    "key": "image",
+                                    "type": "file",
+                                    "src": []
+                                }
+                            ]
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/assets/upload",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "assets",
+                                "upload"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Locations",
+            "item": [
+                {
+                    "name": "List Locations",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Location",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Olympic Stadium\",\n    \"address\": \"Worli Naka\",\n    \"city\": \"Mumbai\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Sports",
+            "item": [
+                {
+                    "name": "List Sports",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/sports",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "sports"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Join Requests",
+            "item": [
+                {
+                    "name": "Send Join Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"tournamentId\": \"uuid\",\n    \"teamId\": null,\n    \"message\": \"I want to join!\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List My Sent Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests/my-requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests",
+                                "my-requests"
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "List Tournament Requests (Organizer)",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests/tournament/:tournamentId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests",
+                                "tournament",
+                                ":tournamentId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "tournamentId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                },
+                {
+                    "name": "Respond to Request (Accept/Reject)",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"ACCEPTED\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests/:requestId/respond",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests",
+                                ":requestId",
+                                "respond"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "requestId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    },
+                    "response": []
+                }
+            ]
+        },
+        {
+            "name": "Invitations",
+            "item": [
+                {
+                    "name": "Invite to Tournament",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"PLAYER\",\n    \"playerId\": \"uuid\",\n    \"teamId\": null\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                ":tournamentId",
+                                "invitations"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "tournamentId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Tournament Invitations",
+                    "request": {
+                        "method": "GET",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                ":tournamentId",
+                                "invitations"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "tournamentId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Accept Invitation",
+                    "request": {
+                        "method": "POST",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations/:invitationId/accept",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                ":tournamentId",
+                                "invitations",
+                                ":invitationId",
+                                "accept"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "tournamentId",
+                                    "value": ""
+                                },
+                                {
+                                    "key": "invitationId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Invitation",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations/:invitationId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                ":tournamentId",
+                                "invitations",
+                                ":invitationId"
+                            ],
+                            "variable": [
+                                {
+                                    "key": "tournamentId",
+                                    "value": ""
+                                },
+                                {
+                                    "key": "invitationId",
+                                    "value": ""
+                                }
+                            ]
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3000",
+            "type": "string"
+        }
+    ]
 }

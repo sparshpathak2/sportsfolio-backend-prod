@@ -5,6 +5,7 @@ export const createInvitation = async ({ type, playerId, teamId, tournamentId, m
     if (!["PLAYER", "TEAM"].includes(type)) throw new Error("INVALID_INVITATION_TYPE");
 
     let targetGameType;
+    let sportCode;
 
     // Check target and get gameType
     if (tournamentId) {
@@ -16,6 +17,7 @@ export const createInvitation = async ({ type, playerId, teamId, tournamentId, m
         if (!tournament.rules || !tournament.rules.gameType) throw new Error("TOURNAMENT_RULES_NOT_SET");
 
         targetGameType = tournament.rules.gameType;
+        sportCode = tournament.sportCode;
 
         // If it's doubles, player invitations are not allowed
         if (targetGameType === "DOUBLES" && type === "PLAYER") {
@@ -30,7 +32,8 @@ export const createInvitation = async ({ type, playerId, teamId, tournamentId, m
             const newTeam = await prisma.team.create({
                 data: {
                     name: newTeamName,
-                    sportCode: tournament.sportCode, // adjust if needed
+                    sportCode: tournament.sportCode,
+                    isTemporary: true, // Mark as temporary since it's auto-created
                 },
             });
 
@@ -83,7 +86,7 @@ export const createInvitation = async ({ type, playerId, teamId, tournamentId, m
 
 export const acceptInvitation = async (invitationId, userId) => {
     return prisma.$transaction(async (tx) => {
-        const invite = await tx.tournamentInvitation.findUnique({
+        const invite = await tx.invitation.findUnique({
             where: { id: invitationId },
             include: {
                 tournament: { include: { rules: true } },
@@ -93,42 +96,34 @@ export const acceptInvitation = async (invitationId, userId) => {
         if (!invite || invite.status !== "PENDING") {
             throw new Error("INVALID_INVITATION");
         }
+        
+        // Ensure the user accepting is the one invited (if it's a player invite)
+        if (invite.type === "PLAYER" && invite.playerId !== userId) {
+            throw new Error("NOT_AUTHORIZED_TO_ACCEPT");
+        }
 
-        // PLAYER INVITE → CREATE TEAM
-        if (invite.type === "PLAYER") {
-            const team = await tx.team.create({
-                data: {
-                    name: `Team-${invite.playerId.slice(-4)}`,
-                    sportId: invite.tournament.rules.gameType === "DOUBLES"
-                        ? await getSportId(invite.tournament.sportCode)
-                        : null,
-                    members: {
-                        create: {
-                            userId: invite.playerId,
-                        },
+        // PLAYER INVITE to Tournament
+        if (invite.tournamentId) {
+            if (invite.type === "PLAYER") {
+                await tx.tournamentParticipant.create({
+                    data: {
+                        tournamentId: invite.tournamentId,
+                        playerId: invite.playerId,
                     },
-                },
-            });
-
-            await tx.tournamentParticipant.create({
-                data: {
-                    tournamentId: invite.tournamentId,
-                    teamId: team.id,
-                },
-            });
+                });
+            } else if (invite.type === "TEAM") {
+                await tx.tournamentParticipant.create({
+                    data: {
+                        tournamentId: invite.tournamentId,
+                        teamId: invite.teamId,
+                    },
+                });
+            }
         }
+        
+        // TODO: Handle match invite acceptance if needed
 
-        // TEAM INVITE
-        if (invite.type === "TEAM") {
-            await tx.tournamentParticipant.create({
-                data: {
-                    tournamentId: invite.tournamentId,
-                    teamId: invite.teamId,
-                },
-            });
-        }
-
-        return tx.tournamentInvitation.update({
+        return tx.invitation.update({
             where: { id: invitationId },
             data: { status: "ACCEPTED" },
         });
@@ -137,7 +132,7 @@ export const acceptInvitation = async (invitationId, userId) => {
 
 
 export const listInvitations = async () => {
-    return prisma.tournamentInvitation.findMany({
+    return prisma.invitation.findMany({
         orderBy: { createdAt: "desc" },
         include: {
             tournament: true,
@@ -149,7 +144,7 @@ export const listInvitations = async () => {
 
 
 export const listInvitationsByUserId = async (userId) => {
-    return prisma.tournamentInvitation.findMany({
+    return prisma.invitation.findMany({
         where: {
             playerId: userId,
         },
@@ -167,7 +162,7 @@ export const listInvitationsByUserId = async (userId) => {
 
 
 export const deleteInvitation = async (invitationId) => {
-    const existing = await prisma.tournamentInvitation.findUnique({
+    const existing = await prisma.invitation.findUnique({
         where: { id: invitationId },
     });
 
@@ -175,13 +170,27 @@ export const deleteInvitation = async (invitationId) => {
         throw new Error("INVITATION_NOT_FOUND");
     }
 
-    return prisma.tournamentInvitation.delete({
+    return prisma.invitation.delete({
         where: { id: invitationId },
     });
 };
 
+export const listInvitationsByTargetId = async (targetIdObject) => {
+    const { tournamentId, matchId } = targetIdObject;
+    const where = tournamentId ? { tournamentId } : { matchId };
+    
+    return prisma.invitation.findMany({
+        where,
+        include: {
+            player: true,
+            team: true,
+        },
+        orderBy: { createdAt: "desc" },
+    });
+};
+
 export const listInvitationsByTournamentId = async (tournamentId) => {
-    return prisma.tournamentInvitation.findMany({
+    return prisma.invitation.findMany({
         where: { tournamentId },
         include: {
             player: true,
