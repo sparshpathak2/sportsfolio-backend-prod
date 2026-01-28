@@ -4,226 +4,6 @@ import { generateCode } from "../../utils/generateCode.utils.js";
 import { runKnockoutMatchmaking } from "./matchMaking/index.js";
 import { generateNextRound } from "./roundProgression/index.js";
 
-// export const createTournament = async (data) => {
-//     return prisma.$transaction(async (tx) => {
-//         const tournament = await tx.tournament.create({
-//             data: {
-//                 name: data.name,
-//                 sportCode: data.sportCode,
-//                 tournamentType: data.tournamentType,
-//                 startDate: new Date(data.startDate),
-//                 endDate: data.endDate ? new Date(data.endDate) : null,
-//                 scheduleType: data.scheduleType ?? "MANUAL",
-//                 isPublic: data.isPublic ?? false,
-//                 entryFee: data.entryFee ?? 0,
-//                 publicJoinCode: data.isPublic ? generateCode() : null,
-//                 matchMakingAt: data.matchMakingAt ?? null, // ✅ NEW
-
-//                 // Location connectOrCreate
-//                 location: {
-//                     connectOrCreate: {
-//                         where: {
-//                             name_address: {
-//                                 name: data.location.name,
-//                                 address: data.location.address,
-//                             },
-//                         },
-//                         create: {
-//                             name: data.location.name,
-//                             address: data.location.address,
-//                             city: data.location.city ?? null,
-//                             state: data.location.state ?? null,
-//                             country: data.location.country ?? "India",
-//                             zipCode: data.location.zipCode ?? null,
-//                         },
-//                     },
-//                 },
-//             },
-//         });
-
-//         // Rules
-//         let rules = null;
-//         if (data.rules) {
-//             rules = await tx.tournamentRules.create({
-//                 data: {
-//                     tournamentId: tournament.id,
-//                     playAreas: data.rules.playAreas,
-//                     partsPerMatch: data.rules.partsPerMatch,
-//                     gameType: data.rules.gameType,
-//                     maxParticipants: data.rules.maxParticipants, // ✅ NEW
-//                     minParticipants: data.rules.minParticipants ?? null, // ✅ NEW
-//                     enableQuarterFinal: data.rules.enableQuarterFinal ?? false,
-//                     enableSemiFinal: data.rules.enableSemiFinal ?? false,
-//                     enableFinal: data.rules.enableFinal ?? true,
-//                     daysOfWeek: data.rules.daysOfWeek,
-//                 },
-//             });
-//         }
-
-//         // Reporting slots
-//         if (rules && data.reportingSlots?.length) {
-//             await tx.reportingSlot.createMany({
-//                 data: data.reportingSlots.map((slot) => ({
-//                     tournamentRulesId: rules.id,
-//                     playArea: slot.playArea,
-//                     reportTime: new Date(slot.reportTime),
-//                 })),
-//             });
-//         }
-
-//         return tx.tournament.findUnique({
-//             where: { id: tournament.id },
-//             include: {
-//                 location: true,
-//                 rules: {
-//                     include: {
-//                         reportingSlots: true,
-//                     },
-//                 },
-//             },
-//         });
-//     });
-// };
-
-
-// export const createTournament = async (data) => {
-//     return prisma.$transaction(async (tx) => {
-//         /* =====================
-//            CREATE TOURNAMENT
-//         ===================== */
-
-//         const tournament = await tx.tournament.create({
-//             data: {
-//                 name: data.name,
-//                 sportCode: data.sportCode,
-//                 tournamentType: data.tournamentType,
-//                 startDate: new Date(data.startDate),
-//                 endDate: data.endDate ? new Date(data.endDate) : null,
-//                 scheduleType: data.scheduleType ?? "MANUAL",
-//                 isPublic: data.isPublic ?? false,
-//                 entryFee: data.entryFee ?? 0,
-//                 publicJoinCode: data.isPublic ? generateCode() : null,
-//                 matchMakingAt: data.matchMakingAt ?? null,
-
-//                 location: {
-//                     connectOrCreate: {
-//                         where: {
-//                             name_address: {
-//                                 name: data.location.name,
-//                                 address: data.location.address,
-//                             },
-//                         },
-//                         create: {
-//                             name: data.location.name,
-//                             address: data.location.address,
-//                             city: data.location.city ?? null,
-//                             state: data.location.state ?? null,
-//                             country: data.location.country ?? "India",
-//                             zipCode: data.location.zipCode ?? null,
-//                         },
-//                     },
-//                 },
-//             },
-//         });
-
-//         /* =====================
-//            RULES
-//         ===================== */
-
-//         let rules = null;
-
-//         if (data.rules) {
-//             rules = await tx.tournamentRules.create({
-//                 data: {
-//                     tournamentId: tournament.id,
-//                     playAreas: data.rules.playAreas,
-//                     partsPerMatch: data.rules.partsPerMatch,
-//                     gameType: data.rules.gameType,
-//                     maxParticipants: data.rules.maxParticipants,
-//                     minParticipants: data.rules.minParticipants ?? null,
-//                     enableQuarterFinal: data.rules.enableQuarterFinal ?? false,
-//                     enableSemiFinal: data.rules.enableSemiFinal ?? false,
-//                     enableFinal: data.rules.enableFinal ?? true,
-//                     daysOfWeek: data.rules.daysOfWeek,
-//                 },
-//             });
-//         }
-
-//         if (rules && data.reportingSlots?.length) {
-//             await tx.reportingSlot.createMany({
-//                 data: data.reportingSlots.map(slot => ({
-//                     tournamentRulesId: rules.id,
-//                     playArea: slot.playArea,
-//                     reportTime: new Date(slot.reportTime),
-//                 })),
-//             });
-//         }
-
-//         /* =====================
-//            ASSETS (LOGO & BANNER)
-//         ===================== */
-
-//         const assetCreates = [];
-
-//         if (data.logo) {
-//             const logoKey = `public/tournament-${tournament.id}-logo-${Date.now()}`;
-
-//             const logoUrl = await uploadToS3({
-//                 buffer: data.logo.buffer,
-//                 mimetype: data.logo.mimetype,
-//                 key: logoKey,
-//             });
-
-//             assetCreates.push({
-//                 entityType: "TOURNAMENT",
-//                 entityId: tournament.id,
-//                 type: "LOGO",
-//                 url: logoUrl,
-//             });
-//         }
-
-//         if (data.banner) {
-//             const bannerKey = `public/tournament-${tournament.id}-banner-${Date.now()}`;
-
-//             const bannerUrl = await uploadToS3({
-//                 buffer: data.banner.buffer,
-//                 mimetype: data.banner.mimetype,
-//                 key: bannerKey,
-//             });
-
-//             assetCreates.push({
-//                 entityType: "TOURNAMENT",
-//                 entityId: tournament.id,
-//                 type: "BANNER",
-//                 url: bannerUrl,
-//             });
-//         }
-
-//         if (assetCreates.length) {
-//             await tx.asset.createMany({ data: assetCreates });
-//         }
-
-//         /* =====================
-//            RETURN FULL TOURNAMENT
-//         ===================== */
-
-//         const assets = await tx.asset.findMany({
-//             where: {
-//                 entityType: "TOURNAMENT",
-//                 entityId: tournament.id,
-//             },
-//         });
-
-//         return {
-//             ...tournament,
-//             assets: {
-//                 logo: assets.find(a => a.type === "LOGO") || null,
-//                 banner: assets.find(a => a.type === "BANNER") || null,
-//             },
-//         };
-//     });
-// };
-
 export const createTournament = async (data) => {
     /* =====================
        CREATE TOURNAMENT (TRANSACTION)
@@ -299,54 +79,179 @@ export const createTournament = async (data) => {
         return tournament;
     });
 
-  
-   
-   
+
+
+
     return tournament;
 };
 
 
-export const listTournaments = async (requesterId = null) => {
-    const tournaments = await prisma.tournament.findMany({
-        include: {
-            locations: true,
-            organizer: true,
-            rules: {
-                include: {
-                    reportingSlots: true,
-                },
-            },
-            participants: requesterId
-                ? {
-                      where: {
-                          OR: [
-                              { playerId: requesterId },
-                              {
-                                  team: {
-                                      members: { some: { userId: requesterId } },
-                                  },
-                              },
-                          ],
-                      },
-                  }
-                : false,
-            _count: {
-                select: {
-                    participants: true,
-                },
-            },
-        },
-        orderBy: {
-            createdAt: "desc",
-        },
-    });
+// export const listTournaments = async (requesterId = null) => {
+//     const tournaments = await prisma.tournament.findMany({
+//         include: {
+//             locations: true,
+//             organizer: true,
+//             rules: {
+//                 include: {
+//                     reportingSlots: true,
+//                 },
+//             },
+//             participants: requesterId
+//                 ? {
+//                     where: {
+//                         OR: [
+//                             { playerId: requesterId },
+//                             {
+//                                 team: {
+//                                     members: { some: { userId: requesterId } },
+//                                 },
+//                             },
+//                         ],
+//                     },
+//                 }
+//                 : false,
+//             _count: {
+//                 select: {
+//                     participants: true,
+//                 },
+//             },
+//         },
+//         orderBy: {
+//             createdAt: "desc",
+//         },
+//     });
 
-    return tournaments.map((t) => ({
-        ...t,
-        isOrganizer: requesterId ? t.organizerId === requesterId : false,
-        isParticipant: requesterId ? t.participants.length > 0 : false,
-    }));
+//     return tournaments.map((t) => ({
+//         ...t,
+//         isOrganizer: requesterId ? t.organizerId === requesterId : false,
+//         isParticipant: requesterId ? t.participants.length > 0 : false,
+//     }));
+// };
+
+export const listTournaments = async ({
+    requesterId,
+    status,
+    scope,
+    visibility,
+    page,
+    limit,
+}) => {
+    const now = new Date();
+
+    const where = {};
+
+    /* ------------------
+       STATUS FILTER
+    ------------------ */
+    if (status === "upcoming") {
+        where.startDate = { gt: now };
+    }
+
+    if (status === "ongoing") {
+        where.startDate = { lte: now };
+        where.OR = [
+            { endDate: null },
+            { endDate: { gte: now } },
+        ];
+    }
+
+    if (status === "completed") {
+        where.OR = [
+            { endDate: { lt: now } },
+            { status: "COMPLETED" },
+        ];
+    }
+
+    /* ------------------
+       VISIBILITY FILTER
+    ------------------ */
+    if (visibility === "public") where.isPublic = true;
+    if (visibility === "private") where.isPublic = false;
+
+    /* ------------------
+       MY TOURNAMENTS
+    ------------------ */
+    if (scope === "my" && requesterId) {
+        where.OR = [
+            { organizerId: requesterId },
+            {
+                participants: {
+                    some: {
+                        OR: [
+                            { playerId: requesterId },
+                            {
+                                team: {
+                                    members: { some: { userId: requesterId } },
+                                },
+                            },
+                        ],
+                    },
+                },
+            },
+            {
+                invitations: {
+                    some: {
+                        playerId: requesterId,
+                        status: "ACCEPTED",
+                    },
+                },
+            },
+        ];
+    }
+
+    /* ------------------
+       PAGINATION
+    ------------------ */
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+        prisma.tournament.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { startDate: "asc" },
+            include: {
+                organizer: true,
+                locations: true,
+                rules: true,
+                participants: requesterId
+                    ? {
+                        where: {
+                            OR: [
+                                { playerId: requesterId },
+                                {
+                                    team: {
+                                        members: { some: { userId: requesterId } },
+                                    },
+                                },
+                            ],
+                        },
+                    }
+                    : false,
+                _count: {
+                    select: { participants: true },
+                },
+            },
+        }),
+
+        prisma.tournament.count({ where }),
+    ]);
+
+    return {
+        data: items.map(t => ({
+            ...t,
+            isOrganizer: requesterId ? t.organizerId === requesterId : false,
+            isParticipant: requesterId ? t.participants?.length > 0 : false,
+        })),
+        meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+    };
 };
+
 
 export const getPublicTournaments = async (requesterId = null) => {
     const tournaments = await prisma.tournament.findMany({
@@ -364,17 +269,17 @@ export const getPublicTournaments = async (requesterId = null) => {
             },
             participants: requesterId
                 ? {
-                      where: {
-                          OR: [
-                              { playerId: requesterId },
-                              {
-                                  team: {
-                                      members: { some: { userId: requesterId } },
-                                  },
-                              },
-                          ],
-                      },
-                  }
+                    where: {
+                        OR: [
+                            { playerId: requesterId },
+                            {
+                                team: {
+                                    members: { some: { userId: requesterId } },
+                                },
+                            },
+                        ],
+                    },
+                }
                 : false,
             _count: {
                 select: {
@@ -506,8 +411,6 @@ export const getTournament = async (id, requesterId = null) => {
         isParticipant,
     };
 };
-
-
 
 export const updateTournament = async (id, data) => {
     const existing = await prisma.tournament.findUnique({

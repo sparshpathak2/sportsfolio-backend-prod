@@ -1,134 +1,5 @@
 import * as tournamentService from "./tournament.service.js";
 
-// export const createTournament = async (req, res) => {
-//     try {
-//         const {
-//             name,
-//             sportCode,
-//             tournamentType,
-//             startDate,
-//             endDate,
-//             scheduleType,
-//             isPublic,
-//             entryFee,
-//             location,        // ✅ SINGLE OBJECT
-//             rules,
-//             reportingSlots,
-//             matchMakingAt,   // ✅ NEW
-//         } = req.body;
-
-//         if (!name || !sportCode || !tournamentType || !startDate || !location) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "name, sportCode, tournamentType, startDate, location are required",
-//             });
-//         }
-
-//         const tournament = await tournamentService.createTournament({
-//             name,
-//             sportCode,
-//             tournamentType,
-//             startDate,
-//             endDate,
-//             scheduleType,
-//             isPublic,
-//             entryFee,
-//             location,        // ✅ PASS AS-IS
-//             rules,
-//             reportingSlots,
-//             matchMakingAt,   // ✅ PASS AS-IS
-//         });
-
-//         return res.status(201).json({
-//             success: true,
-//             data: tournament,
-//         });
-//     } catch (error) {
-//         console.error(error);
-//         return res.status(400).json({
-//             success: false,
-//             message: error.message,
-//         });
-//     }
-// };
-
-// export const createTournament = async (req, res) => {
-//     try {
-//         const {
-//             name,
-//             sportCode,
-//             tournamentType,
-//             startDate,
-//             endDate,
-//             scheduleType,
-//             isPublic,
-//             entryFee,
-//             matchMakingAt,
-//         } = req.body;
-
-//         if (!name || !sportCode || !tournamentType || !startDate) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "name, sportCode, tournamentType, startDate are required",
-//             });
-//         }
-
-//         // ✅ Parse nested JSON fields
-//         const location = req.body.location
-//             ? JSON.parse(req.body.location)
-//             : null;
-
-//         const rules = req.body.rules
-//             ? JSON.parse(req.body.rules)
-//             : null;
-
-//         const reportingSlots = req.body.reportingSlots
-//             ? JSON.parse(req.body.reportingSlots)
-//             : [];
-
-//         if (!location) {
-//             return res.status(400).json({
-//                 success: false,
-//                 message: "location is required",
-//             });
-//         }
-
-//         // ✅ Extract files
-//         const logo = req.files?.logo?.[0] || null;
-//         const banner = req.files?.banner?.[0] || null;
-
-//         const tournament = await tournamentService.createTournament({
-//             name,
-//             sportCode,
-//             tournamentType,
-//             startDate,
-//             endDate,
-//             scheduleType,
-//             isPublic,
-//             entryFee,
-//             location,
-//             rules,
-//             reportingSlots,
-//             matchMakingAt,
-//             logo,    // 👈 PASS FILE
-//             banner,  // 👈 PASS FILE
-//         });
-
-//         return res.status(201).json({
-//             success: true,
-//             data: tournament,
-//         });
-//     } catch (error) {
-//         console.error("Create Tournament Error:", error);
-//         return res.status(400).json({
-//             success: false,
-//             message: error.message,
-//         });
-//     }
-// };
-
-// controller
-
 const parseIfString = (value) => {
     if (!value) return null;
     if (typeof value === "string") return JSON.parse(value);
@@ -211,17 +82,41 @@ export const createTournament = async (req, res) => {
     }
 };
 
-
+// export const listTournaments = async (req, res) => {
+//     // console.log("req.header at listTournaments:", req.headers)
+//     try {
+//         const tournaments = await tournamentService.listTournaments(req.user?.id);
+//         res.json({ success: true, data: tournaments });
+//     } catch (error) {
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
 
 export const listTournaments = async (req, res) => {
-    // console.log("req.header at listTournaments:", req.headers)
     try {
-        const tournaments = await tournamentService.listTournaments(req.user?.id);
-        res.json({ success: true, data: tournaments });
+        const {
+            status,
+            scope = "all",        // all | my
+            visibility,           // public | private
+            page = 1,
+            limit = 10,
+        } = req.query;
+
+        const tournaments = await tournamentService.listTournaments({
+            requesterId: req.user?.id,
+            status,
+            scope,
+            visibility,
+            page: Number(page),
+            limit: Number(limit),
+        });
+
+        res.json({ success: true, ...tournaments });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
 
 export const getMyTournaments = async (req, res) => {
     try {
