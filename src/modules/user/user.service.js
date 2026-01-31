@@ -14,36 +14,71 @@ export const createUser = async ({ phone, email, name }) => {
     });
 };
 
-
 // export const listUsers = async () => {
+//     // 1️⃣ fetch all users with sportProfiles
 //     const users = await prisma.user.findMany({
 //         include: {
 //             sportProfiles: true,
 //         },
 //     });
 
-//     // attach sport details
+//     // 2️⃣ fetch all sports and create a map
 //     const sportMap = await prisma.sport.findMany().then(arr => {
 //         const map = {};
 //         arr.forEach(s => (map[s.code] = s));
 //         return map;
 //     });
 
-//     return users.map(user => ({
+//     // 3️⃣ attach sport details to each user's sportProfiles
+//     const usersWithSport = users.map(user => ({
 //         ...user,
 //         sportProfiles: user.sportProfiles.map(sp => ({
 //             ...sp,
 //             sport: sportMap[sp.sportCode] || null
 //         }))
 //     }));
+
+//     // 4️⃣ return users + count
+//     return {
+//         count: users.length,
+//         users: usersWithSport
+//     };
 // };
 
-export const listUsers = async () => {
-    // 1️⃣ fetch all users with sportProfiles
+
+/**
+ * List users with optional filters and pagination
+ * @param {Object} params
+ * @param {string} params.city - optional city filter
+ * @param {string} params.query - optional search query
+ * @param {number} params.page - page number (default 1)
+ * @param {number} params.limit - items per page (default 20)
+ */
+export const listUsers = async ({ city, query, page = 1, limit = 20 } = {}) => {
+    const where = {};
+
+    if (city) where.city = city;
+
+    // sanitize query
+    const searchQuery = query?.trim();
+
+    if (searchQuery) {
+        where.OR = [
+            { name: { contains: searchQuery, mode: "insensitive" } },
+            { username: { contains: searchQuery, mode: "insensitive" } },
+            { email: { contains: searchQuery, mode: "insensitive" } },
+        ];
+    }
+
+    const skip = (page - 1) * limit;
+
+    // 1️⃣ fetch users with sportProfiles
     const users = await prisma.user.findMany({
-        include: {
-            sportProfiles: true,
-        },
+        where,
+        include: { sportProfiles: true },
+        skip,
+        take: limit,
+        orderBy: { name: "asc" },
     });
 
     // 2️⃣ fetch all sports and create a map
@@ -58,16 +93,17 @@ export const listUsers = async () => {
         ...user,
         sportProfiles: user.sportProfiles.map(sp => ({
             ...sp,
-            sport: sportMap[sp.sportCode] || null
-        }))
+            sport: sportMap[sp.sportCode] || null,
+        })),
     }));
 
-    // 4️⃣ return users + count
-    return {
-        count: users.length,
-        users: usersWithSport
-    };
+
+    // 4️⃣ fetch total count for pagination
+    const totalCount = await prisma.user.count({ where });
+
+    return { users: usersWithSport, totalCount };
 };
+
 
 
 export const getUserById = async (id) => {

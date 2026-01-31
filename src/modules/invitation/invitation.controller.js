@@ -22,7 +22,7 @@ export const invite = async (req, res) => {
             success: true,
             message: tournamentId ? "TOURNAMENT_INVITATION_SENT" : "MATCH_INVITATION_SENT",
             data: invitation,
-        }); 
+        });
     } catch (err) {
         console.error("Invite Error:", err);
         res.status(400).json({
@@ -54,7 +54,7 @@ export const acceptInvitation = async (req, res) => {
             data: result,
         });
     } catch (error) {
-        return res.status(400).json({ 
+        return res.status(400).json({
             success: false,
             message: error.message,
         });
@@ -76,11 +76,19 @@ export const listInvitations = async (req, res) => {
     }
 };
 
+
 export const listInvitationsByUserId = async (req, res) => {
     try {
-        const userId = req.user.id;
-        const invitations = await invitationService.listInvitationsByUserId(userId);
-        res.json({ success: true, data: invitations });
+        const userId = req.params.userId;
+
+        const { data, count } =
+            await invitationService.listInvitationsByUserId(userId);
+
+        res.json({
+            success: true,
+            count,
+            data,
+        });
     } catch (error) {
         res.status(500).json({
             success: false,
@@ -100,11 +108,16 @@ export const listInvitationsByTargetId = async (req, res) => {
             });
         }
 
-        const invitations = await invitationService.listInvitationsByTargetId({ tournamentId, matchId });
+        const { data, count } =
+            await invitationService.listInvitationsByTargetId({
+                tournamentId,
+                matchId,
+            });
 
         res.json({
             success: true,
-            data: invitations,
+            count,
+            data,
         });
     } catch (error) {
         console.error("List Invitations Error:", error);
@@ -114,6 +127,7 @@ export const listInvitationsByTargetId = async (req, res) => {
         });
     }
 };
+
 
 /* =====================
    DELETE INVITATION

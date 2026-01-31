@@ -449,6 +449,7 @@ export const updateTournament = async (id, data) => {
 
 
 export const deleteTournament = async (id) => {
+    // 1️⃣ Check if the tournament exists
     const existing = await prisma.tournament.findUnique({
         where: { id },
     });
@@ -457,14 +458,20 @@ export const deleteTournament = async (id) => {
         throw new Error("TOURNAMENT_NOT_FOUND");
     }
 
+    // 2️⃣ Only allow deletion if status is DRAFT
     if (existing.status !== "DRAFT") {
         throw new Error("TOURNAMENT_CANNOT_BE_DELETED");
     }
 
-    return prisma.tournament.delete({
-        where: { id },
-    });
+    // 3️⃣ Delete all dependent records in a transaction
+    return prisma.$transaction([
+        prisma.invitation.deleteMany({ where: { tournamentId: id } }),
+        prisma.match.deleteMany({ where: { tournamentId: id } }),
+        prisma.tournamentParticipant.deleteMany({ where: { tournamentId: id } }),
+        prisma.tournament.delete({ where: { id } }), // finally delete tournament
+    ]);
 };
+
 
 
 export const upsertTournamentRules = async (tournamentId, rules) => {

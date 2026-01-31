@@ -62,3 +62,57 @@ export const updateLocation = async (req, res) => {
         });
     }
 };
+
+
+// 🆕 Get flat list of cities, optional search query
+export const getCities = (req, res) => {
+    try {
+        const allCities = [
+            "Ahmedabad",
+            "Agra",
+            "Amritsar",
+            "Bengaluru",
+            "Bhopal",
+            "Bhubaneswar",
+            "Chandigarh",
+            "Chennai",
+            "Coimbatore",
+            "Delhi",
+            "Faridabad",
+            "Ghaziabad",
+            "Hyderabad",
+            "Indore",
+            "Jaipur",
+            "Kanpur",
+            "Kolkata",
+            "Lucknow",
+            "Mumbai",
+            "Nagpur",
+            "Noida",
+            "Patna",
+            "Pune",
+            "Raipur",
+            "Ranchi",
+            "Surat",
+            "Vadodara",
+            "Visakhapatnam"
+        ];
+
+        const query = req.query.query?.toLowerCase();
+
+        const filteredCities = query
+            ? allCities.filter(city => city.toLowerCase().includes(query))
+            : allCities;
+
+        res.json({
+            success: true,
+            data: filteredCities,
+        });
+    } catch (error) {
+        console.error("Get Cities Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Failed to fetch cities",
+        });
+    }
+};

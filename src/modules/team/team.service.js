@@ -37,36 +37,109 @@ export const createTeam = async ({ name, sportCode, ownerUserId, logo, city }) =
 /* =====================
    LIST TEAMS
    ===================== */
-export const listTeams = async ({ sportCode }) => {
-    return prisma.team.findMany({
-        where: sportCode
-            ? { sportCode } // enum filter
-            : {},
+// export const listTeams = async ({ sportCode }) => {
+//     return prisma.team.findMany({
+//         where: sportCode
+//             ? { sportCode } // enum filter
+//             : {},
+//         include: {
+//             members: {
+//                 include: {
+//                     user: {
+//                         select: {
+//                             id: true,
+//                             name: true,
+//                             phone: true,
+//                             city: true,
+//                         },
+//                     },
+//                 },
+//             },
+//             _count: {
+//                 select: {
+//                     members: true,
+//                 },
+//             },
+//         },
+//         orderBy: {
+//             createdAt: "desc",
+//         },
+//     });
+// };
+
+// export const listTeams = async ({ sportCode } = {}) => {
+//     const where = {};
+
+//     if (sportCode && sportCode.toLowerCase() !== "null") {
+//         where.sportCode = sportCode.toUpperCase(); // normalize enum
+//     }
+
+//     return prisma.team.findMany({
+//         where,
+//         include: {
+//             members: {
+//                 include: {
+//                     user: {
+//                         select: {
+//                             id: true,
+//                             name: true,
+//                             phone: true,
+//                             city: true,
+//                         },
+//                     },
+//                 },
+//             },
+//             _count: { select: { members: true } },
+//         },
+//         orderBy: { createdAt: "desc" },
+//     });
+// };
+
+export const listTeams = async ({ city, query, sportCode, page = 1, limit = 20 } = {}) => {
+    const andFilters = [];
+
+    // City filter - case-insensitive
+    if (city && city.toLowerCase() !== "null") {
+        andFilters.push({
+            city: {
+                equals: city,
+                mode: "insensitive"
+            }
+        });
+    }
+
+    // SportCode filter
+    if (sportCode && sportCode.toLowerCase() !== "null") {
+        andFilters.push({ sportCode: sportCode.toUpperCase() });
+    }
+
+    // Search query filter
+    const searchQuery = query?.trim();
+    if (searchQuery && searchQuery.toLowerCase() !== "null") {
+        andFilters.push({ name: { contains: searchQuery, mode: "insensitive" } });
+    }
+
+    const where = andFilters.length > 0 ? { AND: andFilters } : {};
+
+    const skip = (page - 1) * limit;
+
+    const teams = await prisma.team.findMany({
+        where,
         include: {
             members: {
-                include: {
-                    user: {
-                        select: {
-                            id: true,
-                            name: true,
-                            phone: true,
-                            city: true,
-                        },
-                    },
-                },
+                include: { user: { select: { id: true, name: true, phone: true, city: true } } },
             },
-            _count: {
-                select: {
-                    members: true,
-                },
-            },
+            _count: { select: { members: true } },
         },
-        orderBy: {
-            createdAt: "desc",
-        },
+        skip,
+        take: limit,
+        orderBy: { createdAt: "desc" },
     });
-};
 
+    const totalCount = await prisma.team.count({ where });
+
+    return { teams, totalCount };
+};
 
 /* =====================
    GET TEAM

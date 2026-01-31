@@ -1,10 +1,10 @@
 import express from "express";
 import {
-    invite,
-    acceptInvitation,
-    listInvitationsByUserId,
-    listInvitationsByTargetId,
-    deleteInvitation,
+   invite,
+   acceptInvitation,
+   listInvitationsByUserId,
+   listInvitationsByTargetId,
+   deleteInvitation,
 } from "./invitation.controller.js";
 
 const router = express.Router({ mergeParams: true });
@@ -23,18 +23,16 @@ router.post("/", invite);
 // GET /api/matches/:matchId/invitations
 // GET /api/users/:userId/invitations
 router.get("/", (req, res, next) => {
-    const { tournamentId, matchId, userId } = req.params;
+   // const { tournamentId, matchId } = req.query;
+   const { tournamentId, matchId } = req.params;
 
-    if (tournamentId || matchId) {
-        return listInvitationsByTargetId(req, res, next); // flexible for tournament/match
-    }
+   if (tournamentId || matchId) {
+      return listInvitationsByTargetId(req, res, next);
+   }
 
-    if (userId) {
-        return listInvitationsByUserId(req, res, next);
-    }
-
-    return res.status(400).json({ message: "INVALID_INVITATION_CONTEXT" });
+   return listInvitationsByUserId(req, res, next);
 });
+
 
 /* =====================
    ACCEPT INVITATION
