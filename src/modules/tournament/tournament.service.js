@@ -412,16 +412,50 @@ export const getTournament = async (id, requesterId = null) => {
     };
 };
 
+// export const updateTournament = async (id, data) => {
+//     const existing = await prisma.tournament.findUnique({
+//         where: { id },
+//     });
+
+//     if (!existing) {
+//         throw new Error("TOURNAMENT_NOT_FOUND");
+//     }
+
+//     if (existing.status === "ONGOING" || existing.status === "COMPLETED") {
+//         throw new Error("TOURNAMENT_LOCKED");
+//     }
+
+//     if (data.endDate && data.startDate) {
+//         if (new Date(data.endDate) < new Date(data.startDate)) {
+//             throw new Error("INVALID_DATE_RANGE");
+//         }
+//     }
+
+//     return prisma.tournament.update({
+//         where: { id },
+//         data: {
+//             name: data.name,
+//             startDate: data.startDate ? new Date(data.startDate) : undefined,
+//             endDate: data.endDate ? new Date(data.endDate) : undefined,
+//             status: data.status,
+//             isPublic: data.isPublic,
+//             entryFee: data.entryFee,
+//             scheduleType: data.scheduleType,
+//             logo: data.logo,
+//             banner: data.banner,
+//         },
+//     });
+// };
+
 export const updateTournament = async (id, data) => {
     const existing = await prisma.tournament.findUnique({
         where: { id },
+        include: { locations: true },
     });
 
-    if (!existing) {
-        throw new Error("TOURNAMENT_NOT_FOUND");
-    }
+    if (!existing) throw new Error("TOURNAMENT_NOT_FOUND");
 
-    if (existing.status === "ONGOING" || existing.status === "COMPLETED") {
+    if (["ONGOING", "COMPLETED"].includes(existing.status)) {
         throw new Error("TOURNAMENT_LOCKED");
     }
 
@@ -431,21 +465,65 @@ export const updateTournament = async (id, data) => {
         }
     }
 
-    return prisma.tournament.update({
-        where: { id },
-        data: {
-            name: data.name,
-            startDate: data.startDate ? new Date(data.startDate) : undefined,
-            endDate: data.endDate ? new Date(data.endDate) : undefined,
-            status: data.status,
-            isPublic: data.isPublic,
-            entryFee: data.entryFee,
-            scheduleType: data.scheduleType,
-            logo: data.logo,
-            banner: data.banner,
-        },
+    const locations = Array.isArray(data.locations)
+        ? data.locations
+        : [];
+
+    return prisma.$transaction(async (tx) => {
+        // 🔥 Step 1: Clear old locations if new ones are provided
+        if (locations.length) {
+            await tx.tournament.update({
+                where: { id },
+                data: {
+                    locations: {
+                        set: [], // removes existing relations
+                    },
+                },
+            });
+        }
+
+        // 🔥 Step 2: Update tournament + attach locations
+        const updated = await tx.tournament.update({
+            where: { id },
+            data: {
+                name: data.name ?? undefined,
+                startDate: data.startDate ? new Date(data.startDate) : undefined,
+                endDate: data.endDate ? new Date(data.endDate) : undefined,
+                status: data.status ?? undefined,
+                isPublic: data.isPublic ?? undefined,
+                entryFee: data.entryFee ?? undefined,
+                scheduleType: data.scheduleType ?? undefined,
+                logo: data.logo ?? undefined,
+                banner: data.banner ?? undefined,
+                city: data.city ?? undefined,
+
+                ...(locations.length && {
+                    locations: {
+                        connectOrCreate: locations.map((loc) => ({
+                            where: {
+                                name_address: {
+                                    name: loc.name,
+                                    address: loc.address,
+                                },
+                            },
+                            create: {
+                                name: loc.name,
+                                address: loc.address,
+                                city: loc.city ?? null,
+                                state: loc.state ?? null,
+                                country: loc.country ?? "India",
+                                zipCode: loc.zipCode ?? null,
+                            },
+                        })),
+                    },
+                }),
+            },
+        });
+
+        return updated;
     });
 };
+
 
 
 export const deleteTournament = async (id) => {
@@ -524,6 +602,7 @@ export const runMatchmaking = async (tournamentId) => {
         include: {
             rules: true,
             participants: true,
+            locations: true,
         },
     });
 

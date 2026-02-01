@@ -385,6 +385,43 @@ export const createMatch = async ({
 //     });
 // };
 
+// export const createBracketMatch = async (
+//     tx,
+//     {
+//         tournament,
+//         playerAId,
+//         playerBId,
+//         round,
+//     }
+// ) => {
+//     console.log("tournament at createBracketMatch:", tournament);
+
+//     const match = await tx.match.create({
+//         data: {
+//             tournamentId: tournament.id,
+//             sportCode: tournament.sportCode,
+//             gameType: tournament.rules.gameType,
+//             round,
+//             partsCount: tournament.rules.partsPerMatch,
+//             status: "SCHEDULED",
+
+//             // ✅ REQUIRED (you map values later)
+//             locationId: tournament.locationId,
+//             // officialUserId: officialUserId,
+//         },
+//     });
+
+
+//     await tx.matchParticipant.createMany({
+//         data: [
+//             { matchId: match.id, userId: playerAId, position: 1 },
+//             { matchId: match.id, userId: playerBId, position: 2 },
+//         ],
+//     });
+
+//     return match;
+// };
+
 export const createBracketMatch = async (
     tx,
     {
@@ -394,23 +431,31 @@ export const createBracketMatch = async (
         round,
     }
 ) => {
-    console.log("tournament at createBracketMatch:", tournament);
+    console.log("tournament at createBracketMatch:", tournament)
+    if (!tournament.locations || tournament.locations.length === 0) {
+        throw new Error("TOURNAMENT_LOCATION_NOT_SET");
+    }
+
+    const locationId = tournament.locations[0].id; // pick first for now
 
     const match = await tx.match.create({
         data: {
-            tournamentId: tournament.id,
             sportCode: tournament.sportCode,
             gameType: tournament.rules.gameType,
             round,
             partsCount: tournament.rules.partsPerMatch,
             status: "SCHEDULED",
 
-            // ✅ REQUIRED (you map values later)
-            locationId: tournament.locationId,
-            // officialUserId: officialUserId,
+            // ✅ RELATION CONNECTS (THIS IS THE KEY)
+            tournament: {
+                connect: { id: tournament.id },
+            },
+
+            location: {
+                connect: { id: locationId },
+            },
         },
     });
-
 
     await tx.matchParticipant.createMany({
         data: [
@@ -421,6 +466,7 @@ export const createBracketMatch = async (
 
     return match;
 };
+
 
 
 

@@ -178,11 +178,45 @@ export const getTournament = async (req, res) => {
 };
 
 
+// export const updateTournament = async (req, res) => {
+//     try {
+//         const updated = await tournamentService.updateTournament(
+//             req.params.tournamentId,
+//             req.body
+//         );
+
+//         res.json({
+//             success: true,
+//             message: "Tournament updated successfully",
+//             data: updated,
+//         });
+//     } catch (error) {
+//         const map = {
+//             TOURNAMENT_NOT_FOUND: [404, "Tournament not found"],
+//             TOURNAMENT_LOCKED: [409, "Tournament can no longer be modified"],
+//             INVALID_DATE_RANGE: [400, "Invalid date range"],
+//         };
+
+//         const [status, message] = map[error.message] || [
+//             400,
+//             "Failed to update tournament",
+//         ];
+
+//         res.status(status).json({ success: false, message });
+//     }
+// };
+
+
 export const updateTournament = async (req, res) => {
     try {
+        const locations = parseIfString(req.body.locations);
+
         const updated = await tournamentService.updateTournament(
             req.params.tournamentId,
-            req.body
+            {
+                ...req.body,
+                locations,
+            }
         );
 
         res.json({
@@ -199,7 +233,7 @@ export const updateTournament = async (req, res) => {
 
         const [status, message] = map[error.message] || [
             400,
-            "Failed to update tournament",
+            error.message || "Failed to update tournament",
         ];
 
         res.status(status).json({ success: false, message });
