@@ -255,11 +255,12 @@ model Session {
 }
 
 model OTP {
-  id        String   @id @default(cuid())
-  phone     String
-  code      String
-  expiresAt DateTime
-  verified  Boolean  @default(false)
+  id          String   @id @default(cuid())
+  phone       String
+  code        String?
+  sessionInfo String?
+  expiresAt   DateTime
+  verified    Boolean  @default(false)
 
   createdAt DateTime @default(now())
 
