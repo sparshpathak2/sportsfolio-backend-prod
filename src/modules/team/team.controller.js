@@ -147,6 +147,54 @@ export const getTeamById = async (req, res) => {
     }
 };
 
+export const updateTeam = async (req, res) => {
+    try {
+        const teamId = req.params.id;
+        const userId = req.user.id;
+        const { name, logo, city } = req.body;
+
+        const team = await teamService.updateTeam({
+            teamId,
+            userId,
+            name,
+            logo,
+            city,
+        });
+
+        res.status(200).json({
+            success: true,
+            data: team,
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+
+export const deleteTeam = async (req, res) => {
+    try {
+        const teamId = req.params.id;
+        const userId = req.user.id; // authenticated user
+
+        const deletedTeam = await teamService.deleteTeam(teamId, userId);
+
+        res.status(200).json({
+            success: true,
+            data: deletedTeam,
+            message: "Team deleted successfully",
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+
 export const joinTeamController = async (req, res) => {
     try {
         const { teamId } = req.params;
@@ -171,14 +219,14 @@ export const joinTeamController = async (req, res) => {
 };
 
 
-
 export const removeTeamMember = async (req, res) => {
     try {
-        const { id, userId } = req.params;
+        const { teamId, userId } = req.params;
 
         await teamService.removeTeamMember({
-            teamId: id,
+            teamId,
             userId,
+            requestedByUserId: req.user.id, // pass authenticated user
         });
 
         res.json({ success: true });
@@ -186,6 +234,7 @@ export const removeTeamMember = async (req, res) => {
         res.status(400).json({ success: false, message: error.message });
     }
 };
+
 
 export const listTeamMembers = async (req, res) => {
     try {

@@ -5,6 +5,7 @@ import {
    listInvitationsByUserId,
    listInvitationsByTargetId,
    deleteInvitation,
+   declineInvitation
 } from "./invitation.controller.js";
 
 const router = express.Router({ mergeParams: true });
@@ -40,6 +41,8 @@ router.get("/", (req, res, next) => {
 // POST /api/tournaments/:tournamentId/invitations/:invitationId/accept
 // POST /api/matches/:matchId/invitations/:invitationId/accept
 router.post("/:invitationId/accept", acceptInvitation);
+
+router.post("/:invitationId/decline", declineInvitation);
 
 /* =====================
    DELETE INVITATION

@@ -1,387 +1,232 @@
 import prisma from "../../lib/prisma.js";
+import { TeamMemberRole } from "@prisma/client";
 
-// export const createInvitation = async ({ type, playerId, teamId, tournamentId, matchId }) => {
-//     // Validate type
-//     if (!["PLAYER", "TEAM"].includes(type)) throw new Error("INVALID_INVITATION_TYPE");
+const generateTempTeamName = () => {
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2, "0");
+    const mm = String(now.getMinutes()).padStart(2, "0");
+    const ss = String(now.getSeconds()).padStart(2, "0");
 
-//     // 🆕 NEW: Prevent ambiguous target (tournament + match together)
-//     if (tournamentId && matchId) {
-//         throw new Error("INVITATION_TARGET_CONFLICT");
-//     }
-
-//     // 🆕 NEW: Prevent mixed IDs
-//     if (type === "PLAYER" && teamId) {
-//         throw new Error("TEAM_ID_NOT_ALLOWED_FOR_PLAYER_INVITE");
-//     }
-
-//     if (type === "TEAM" && playerId) {
-//         throw new Error("PLAYER_ID_NOT_ALLOWED_FOR_TEAM_INVITE");
-//     }
-
-//     let targetGameType;
-//     let sportCode;
-
-//     // Check target and get gameType
-//     if (tournamentId) {
-//         const tournament = await prisma.tournament.findUnique({
-//             where: { id: tournamentId },
-//             include: { rules: true, participants: true },
-//         });
-//         if (!tournament) throw new Error("TOURNAMENT_NOT_FOUND");
-//         if (!tournament.rules || !tournament.rules.gameType) throw new Error("TOURNAMENT_RULES_NOT_SET");
-
-//         targetGameType = tournament.rules.gameType;
-//         sportCode = tournament.sportCode;
-
-//         // If it's doubles, player invitations are not allowed
-//         if (targetGameType === "DOUBLES" && type === "PLAYER") {
-//             throw new Error("PLAYER_INVITATION_NOT_ALLOWED_FOR_DOUBLES");
-//         }
-
-//         // If it's doubles and type is TEAM, auto-create a team if teamId not provided
-//         if (type === "TEAM" && !teamId) {
-//             const existingTeamsCount = tournament.participants.filter(p => p.teamId).length;
-//             const newTeamName = `Team ${existingTeamsCount + 1}`;
-
-//             const newTeam = await prisma.team.create({
-//                 data: {
-//                     name: newTeamName,
-//                     sportCode: tournament.sportCode,
-//                     isTemporary: true, // Mark as temporary since it's auto-created
-//                 },
-//             });
-
-//             teamId = newTeam.id;
-//         }
-
-//     }
-
-//     if (matchId) {
-//         const match = await prisma.match.findUnique({ where: { id: matchId } });
-//         if (!match) throw new Error("MATCH_NOT_FOUND");
-//         if (!match.gameType) throw new Error("MATCH_GAME_TYPE_NOT_SET");
-
-//         targetGameType = match.gameType;
-
-//         // Only allow team invites for doubles
-//         if (type === "TEAM" && targetGameType === "SINGLES") {
-//             throw new Error("TEAM_INVITATION_NOT_ALLOWED_FOR_SINGLES");
-//         }
-
-//         // Player invites not allowed for doubles
-//         if (type === "PLAYER" && targetGameType === "DOUBLES") {
-//             throw new Error("PLAYER_INVITATION_NOT_ALLOWED_FOR_DOUBLES");
-//         }
-//     }
-
-//     // Validate IDs
-//     if (type === "PLAYER" && !playerId) throw new Error("PLAYER_ID_REQUIRED");
-//     if (type === "TEAM" && !teamId) throw new Error("TEAM_ID_REQUIRED");
-
-//     // Prevent duplicate invitation
-//     const existing = await prisma.invitation.findFirst({
-//         where: {
-//             tournamentId,
-//             matchId,
-//             playerId,
-//             teamId,
-//             status: "PENDING",
-//         },
-//     });
-
-//     if (existing) throw new Error("INVITATION_ALREADY_EXISTS");
-
-//     // Create invitation
-//     return prisma.invitation.create({
-//         data: { type, playerId, teamId, tournamentId, matchId },
-//     });
-// };
-
-// export const createInvitation = async ({ type, playerId, teamId, tournamentId, matchId }) => {
-//     // Validate type
-//     if (!["PLAYER", "TEAM"].includes(type)) {
-//         throw new Error("INVALID_INVITATION_TYPE");
-//     }
-
-//     // 🆕 NEW: Prevent ambiguous target
-//     if (tournamentId && matchId) {
-//         throw new Error("INVITATION_TARGET_CONFLICT");
-//     }
-
-//     // 🆕 NEW: Prevent mixed identifiers
-//     if (type === "PLAYER" && teamId) {
-//         throw new Error("TEAM_ID_NOT_ALLOWED_FOR_PLAYER_INVITE");
-//     }
-
-//     if (type === "TEAM" && playerId) {
-//         throw new Error("PLAYER_ID_NOT_ALLOWED_FOR_TEAM_INVITE");
-//     }
-
-//     let targetGameType;
-//     let sportCode;
-
-//     /* ======================
-//        TOURNAMENT INVITES
-//        ====================== */
-//     if (tournamentId) {
-//         const tournament = await prisma.tournament.findUnique({
-//             where: { id: tournamentId },
-//             include: { rules: true, participants: true },
-//         });
-
-//         console.log("tournament at createInvitation:", tournament)
-
-//         if (!tournament) throw new Error("TOURNAMENT_NOT_FOUND");
-//         if (!tournament.rules?.gameType) throw new Error("TOURNAMENT_RULES_NOT_SET");
-
-//         targetGameType = tournament.rules.gameType;
-//         sportCode = tournament.sportCode;
-
-//         /* 🔥 OPTION 1 CORE LOGIC 🔥
-//            DOUBLES + PLAYER → AUTO TEAM + USER INVITE
-//         */
-//         if (targetGameType === "DOUBLES" && type === "PLAYER") {
-//             // 🆕 NEW: Auto-create temp team
-//             const existingTeamsCount = tournament.participants.filter(p => p.teamId).length;
-
-//             const tempTeam = await prisma.team.create({
-//                 data: {
-//                     name: `Team ${existingTeamsCount + 1}`,
-//                     sportCode,
-//                     isTemporary: true,
-//                 },
-//             });
-
-//             // 🆕 NEW: Attach player to temp team (pending via invite)
-//             teamId = tempTeam.id;
-//         }
-
-//         /* TEAM invite to tournament (existing behavior) */
-//         if (targetGameType === "DOUBLES" && type === "TEAM" && !teamId) {
-//             const existingTeamsCount = tournament.participants.filter(p => p.teamId).length;
-
-//             const tempTeam = await prisma.team.create({
-//                 data: {
-//                     name: `Team ${existingTeamsCount + 1}`,
-//                     sportCode,
-//                     isTemporary: true,
-//                 },
-//             });
-
-//             teamId = tempTeam.id;
-//         }
-
-//         if (targetGameType === "SINGLES" && type === "TEAM") {
-//             throw new Error("TEAM_INVITATION_NOT_ALLOWED_FOR_SINGLES");
-//         }
-//     }
-
-//     /* ======================
-//        MATCH INVITES (QUICK MATCH)
-//        ====================== */
-//     if (matchId) {
-//         const match = await prisma.match.findUnique({ where: { id: matchId } });
-
-//         if (!match) throw new Error("MATCH_NOT_FOUND");
-//         if (!match.gameType) throw new Error("MATCH_GAME_TYPE_NOT_SET");
-
-//         targetGameType = match.gameType;
-
-//         if (targetGameType === "SINGLES" && type === "TEAM") {
-//             throw new Error("TEAM_INVITATION_NOT_ALLOWED_FOR_SINGLES");
-//         }
-
-//         if (targetGameType === "DOUBLES" && type === "PLAYER") {
-//             throw new Error("PLAYER_INVITATION_NOT_ALLOWED_FOR_DOUBLES");
-//         }
-//     }
-
-//     // Final validation
-//     if (type === "PLAYER" && !playerId) throw new Error("PLAYER_ID_REQUIRED");
-//     if (type === "TEAM" && !teamId) throw new Error("TEAM_ID_REQUIRED");
-
-//     // Prevent duplicate invitation
-//     const existing = await prisma.invitation.findFirst({
-//         where: {
-//             tournamentId,
-//             matchId,
-//             playerId,
-//             teamId,
-//             status: "PENDING",
-//         },
-//     });
-
-//     if (existing) throw new Error("INVITATION_ALREADY_EXISTS");
-
-//     // Create invitation
-//     return prisma.invitation.create({
-//         data: {
-//             type,
-//             playerId,   // ✅ USER is the recipient
-//             teamId,     // ✅ TEAM is auto-managed
-//             tournamentId,
-//             matchId,
-//         },
-//     });
-// };
+    return `T-${hh}${mm}${ss}`;
+};
 
 export const createInvitation = async ({
     type,
     playerId,
-    teamId,
+    invitedTeamId,
     tournamentId,
     matchId,
+    targetTeamId,
 }) => {
-    /* ======================
-       BASIC VALIDATIONS
-       ====================== */
     if (!["PLAYER", "TEAM"].includes(type)) {
         throw new Error("INVALID_INVITATION_TYPE");
     }
 
-    if (tournamentId && matchId) {
-        throw new Error("INVITATION_TARGET_CONFLICT");
+    const targets = [tournamentId, matchId, targetTeamId].filter(Boolean);
+    if (targets.length !== 1) {
+        throw new Error("INVALID_INVITATION_TARGET");
     }
 
-    if (!tournamentId && !matchId) {
-        throw new Error("TARGET_REQUIRED");
-    }
+    let teamId = null;
 
-    /* ======================
-       TARGET RESOLUTION
-       ====================== */
-    let targetGameType;
-    let sportCode;
+    /* ======================================================
+       PLAYER → TEAM
+       ====================================================== */
+    if (type === "PLAYER" && targetTeamId) {
+        if (!playerId) throw new Error("PLAYER_ID_REQUIRED");
 
-    if (tournamentId) {
-        const tournament = await prisma.tournament.findUnique({
-            where: { id: tournamentId },
-            include: {
-                rules: true,
-                participants: true,
+        const existingInvite = await prisma.invitation.findFirst({
+            where: {
+                type: "PLAYER",
+                playerId,
+                targetTeamId,
+                status: "PENDING",
             },
         });
 
-        if (!tournament) throw new Error("TOURNAMENT_NOT_FOUND");
-        if (!tournament.rules?.gameType) throw new Error("TOURNAMENT_RULES_NOT_SET");
-
-        targetGameType = tournament.rules.gameType;
-        sportCode = tournament.sportCode;
-
-        /* DOUBLES + PLAYER → AUTO TEMP TEAM */
-        if (targetGameType === "DOUBLES" && type === "PLAYER") {
-            if (!playerId) throw new Error("PLAYER_ID_REQUIRED");
-
-            const existingTeamsCount = tournament.participants.filter(p => p.teamId).length;
-
-            const tempTeam = await prisma.team.create({
-                data: {
-                    name: `Team ${existingTeamsCount + 1}`,
-                    sportCode,
-                    isTemporary: true,
-                },
-            });
-
-            teamId = tempTeam.id;
+        if (existingInvite) {
+            throw new Error("PLAYER_ALREADY_INVITED_TO_TEAM");
         }
 
-        /* DOUBLES + TEAM (NO TEAM PROVIDED) → AUTO TEAM */
-        if (targetGameType === "DOUBLES" && type === "TEAM" && !teamId) {
-            const existingTeamsCount = tournament.participants.filter(p => p.teamId).length;
-
-            const tempTeam = await prisma.team.create({
-                data: {
-                    name: `Team ${existingTeamsCount + 1}`,
-                    sportCode,
-                    isTemporary: true,
-                },
-            });
-
-            teamId = tempTeam.id;
-        }
-
-        if (targetGameType === "SINGLES" && type === "TEAM") {
-            throw new Error("TEAM_INVITATION_NOT_ALLOWED_FOR_SINGLES");
-        }
-    }
-
-    if (matchId) {
-        const match = await prisma.match.findUnique({
-            where: { id: matchId },
+        const alreadyMember = await prisma.teamMember.findFirst({
+            where: {
+                teamId: targetTeamId,
+                userId: playerId,
+            },
         });
 
-        if (!match) throw new Error("MATCH_NOT_FOUND");
-        if (!match.gameType) throw new Error("MATCH_GAME_TYPE_NOT_SET");
-
-        targetGameType = match.gameType;
-
-        if (targetGameType === "SINGLES" && type === "TEAM") {
-            throw new Error("TEAM_INVITATION_NOT_ALLOWED_FOR_SINGLES");
-        }
-
-        if (targetGameType === "DOUBLES" && type === "PLAYER") {
-            throw new Error("PLAYER_INVITATION_NOT_ALLOWED_FOR_DOUBLES");
+        if (alreadyMember) {
+            throw new Error("PLAYER_ALREADY_IN_TEAM");
         }
     }
 
-    /* ======================
-       FINAL REQUIRED CHECKS
-       ====================== */
-    if (type === "PLAYER" && !playerId) {
-        throw new Error("PLAYER_ID_REQUIRED");
+    /* ======================================================
+       TOURNAMENT CONTEXT
+       ====================================================== */
+    if (tournamentId) {
+        const tournament = await prisma.tournament.findUnique({
+            where: { id: tournamentId },
+            include: { rules: true },
+        });
+
+        if (!tournament || !tournament.rules?.gameType) {
+            throw new Error("TOURNAMENT_RULES_NOT_SET");
+        }
+
+        const gameType = tournament.rules.gameType;
+
+        /* =====================
+           PLAYER → TOURNAMENT
+           ===================== */
+        if (type === "PLAYER") {
+            if (!playerId) throw new Error("PLAYER_ID_REQUIRED");
+
+            const existingInvite = await prisma.invitation.findFirst({
+                where: {
+                    type: "PLAYER",
+                    tournamentId,
+                    playerId,
+                    status: "PENDING",
+                },
+            });
+
+            if (existingInvite) {
+                throw new Error("PLAYER_ALREADY_INVITED_TO_TOURNAMENT");
+            }
+
+            const alreadyParticipant =
+                await prisma.tournamentParticipant.findFirst({
+                    where: {
+                        tournamentId,
+                        OR: [
+                            { playerId },
+                            {
+                                team: {
+                                    members: {
+                                        some: { userId: playerId },
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                });
+
+            if (alreadyParticipant) {
+                throw new Error("PLAYER_ALREADY_IN_TOURNAMENT");
+            }
+
+            if (gameType === "DOUBLES") {
+                const tempTeam = await prisma.team.create({
+                    data: {
+                        name: generateTempTeamName(),
+                        sportCode: tournament.sportCode,
+                        isTemporary: true,
+                    },
+                });
+
+                await prisma.teamMember.create({
+                    data: {
+                        teamId: tempTeam.id,
+                        userId: playerId,
+                        role: "OWNER",
+                    },
+                });
+
+                teamId = tempTeam.id;
+            }
+        }
+
+        /* =====================
+           TEAM → TOURNAMENT
+           ===================== */
+        if (type === "TEAM") {
+            // 🔥 OLD behavior: playerId present → temp team
+            if (playerId) {
+                const tempTeam = await prisma.team.create({
+                    data: {
+                        name: generateTempTeamName(),
+                        sportCode: tournament.sportCode,
+                        isTemporary: true,
+                    },
+                });
+
+                await prisma.teamMember.create({
+                    data: {
+                        teamId: tempTeam.id,
+                        userId: playerId,
+                        role: "OWNER",
+                    },
+                });
+
+                teamId = tempTeam.id;
+            } else {
+                if (!invitedTeamId) throw new Error("TEAM_ID_REQUIRED");
+
+                // ✅ FIX: prevent multiple invites
+                const existingInvite = await prisma.invitation.findFirst({
+                    where: {
+                        type: "TEAM",
+                        tournamentId,
+                        teamId: invitedTeamId,
+                        status: "PENDING",
+                    },
+                });
+
+                if (existingInvite) {
+                    throw new Error("TEAM_ALREADY_INVITED_TO_TOURNAMENT");
+                }
+
+                const alreadyParticipant =
+                    await prisma.tournamentParticipant.findFirst({
+                        where: {
+                            tournamentId,
+                            teamId: invitedTeamId,
+                        },
+                    });
+
+                if (alreadyParticipant) {
+                    throw new Error("TEAM_ALREADY_IN_TOURNAMENT");
+                }
+
+                teamId = invitedTeamId;
+            }
+        }
     }
 
-    if (type === "TEAM" && !teamId) {
-        throw new Error("TEAM_ID_REQUIRED");
+    /* ======================================================
+       MATCH → PLAYER
+       ====================================================== */
+    if (matchId && type === "PLAYER") {
+        if (!playerId) throw new Error("PLAYER_ID_REQUIRED");
+
+        const existingInvite = await prisma.invitation.findFirst({
+            where: {
+                type: "PLAYER",
+                matchId,
+                playerId,
+                status: "PENDING",
+            },
+        });
+
+        if (existingInvite) {
+            throw new Error("PLAYER_ALREADY_INVITED_TO_MATCH");
+        }
     }
 
-    /* ======================
-       DUPLICATE PREVENTION
-       ====================== */
-    const existing = await prisma.invitation.findFirst({
-        where: {
+    /* ======================================================
+       CREATE INVITATION
+       ====================================================== */
+    return prisma.invitation.create({
+        data: {
+            type,
+            playerId: type === "PLAYER" ? playerId : playerId ?? null,
+            teamId,
             tournamentId,
             matchId,
-            playerId: type === "PLAYER" ? playerId : undefined,
-            teamId: type === "TEAM" ? teamId : undefined,
+            targetTeamId,
             status: "PENDING",
         },
     });
-
-    if (existing) throw new Error("INVITATION_ALREADY_EXISTS");
-
-    /* ======================
-       SAFE CREATE (🔥 FIX)
-       ====================== */
-    /* ======================
-   FK-SAFE CREATE
-   ====================== */
-    const data = {
-        type,
-        tournamentId,
-        matchId,
-    };
-
-    if (type === "PLAYER") {
-        const userExists = await prisma.user.findUnique({
-            where: { id: playerId },
-            select: { id: true },
-        });
-
-        if (!userExists) {
-            throw new Error("PLAYER_NOT_FOUND");
-        }
-
-        data.playerId = playerId;
-        data.teamId = teamId ?? null;
-    }
-
-    if (type === "TEAM") {
-        data.teamId = teamId;
-    }
-
-    return prisma.invitation.create({ data });
-
 };
 
 
@@ -398,26 +243,69 @@ export const acceptInvitation = async (invitationId, userId) => {
             throw new Error("INVALID_INVITATION");
         }
 
-        // Ensure the user accepting is the one invited (if it's a player invite)
+        /* ================= AUTH ================= */
+
         if (invite.type === "PLAYER" && invite.playerId !== userId) {
-            throw new Error("NOT_AUTHORIZED_TO_ACCEPT");
+            throw new Error("NOT_AUTHORIZED");
         }
 
-        // 🔐 USER is ALWAYS the acceptor
-        if (invite.playerId !== userId) {
-            throw new Error("NOT_AUTHORIZED_TO_ACCEPT");
-        }
-
-        // PLAYER INVITE to Tournament
-        if (invite.tournamentId) {
-            if (invite.type === "PLAYER") {
-                await tx.tournamentParticipant.create({
-                    data: {
-                        tournamentId: invite.tournamentId,
-                        playerId: invite.playerId,
+        if (invite.type === "TEAM") {
+            const admin = await tx.teamMember.findFirst({
+                where: {
+                    teamId: invite.teamId,
+                    userId,
+                    role: {
+                        in: [
+                            TeamMemberRole.OWNER,
+                            TeamMemberRole.MANAGER,
+                            TeamMemberRole.CAPTAIN,
+                        ],
                     },
-                });
-            } else if (invite.type === "TEAM") {
+                },
+            });
+            if (!admin) {
+                throw new Error("ONLY_TEAM_ADMIN_CAN_ACCEPT");
+            }
+        }
+
+        /* ================= TOURNAMENT ================= */
+
+        if (invite.tournamentId) {
+            const gameType = invite.tournament.rules.gameType;
+
+            if (invite.type === "PLAYER") {
+                if (gameType === "SINGLES") {
+                    await tx.tournamentParticipant.create({
+                        data: {
+                            tournamentId: invite.tournamentId,
+                            playerId: userId,
+                        },
+                    });
+                }
+
+                if (gameType === "DOUBLES") {
+                    if (!invite.teamId) {
+                        throw new Error("TEMP_TEAM_MISSING");
+                    }
+
+                    await tx.teamMember.create({
+                        data: {
+                            teamId: invite.teamId,
+                            userId,
+                            role: "PLAYER",
+                        },
+                    });
+
+                    await tx.tournamentParticipant.create({
+                        data: {
+                            tournamentId: invite.tournamentId,
+                            teamId: invite.teamId,
+                        },
+                    });
+                }
+            }
+
+            if (invite.type === "TEAM") {
                 await tx.tournamentParticipant.create({
                     data: {
                         tournamentId: invite.tournamentId,
@@ -427,7 +315,30 @@ export const acceptInvitation = async (invitationId, userId) => {
             }
         }
 
-        // TODO: Handle match invite acceptance if needed
+        /* ================= MATCH ================= */
+
+        if (invite.matchId && invite.type === "PLAYER") {
+            await tx.matchParticipant.create({
+                data: {
+                    matchId: invite.matchId,
+                    userId,
+                },
+            });
+        }
+
+        /* ================= PLAYER → TEAM ================= */
+
+        if (invite.targetTeamId && invite.type === "PLAYER") {
+            await tx.teamMember.create({
+                data: {
+                    teamId: invite.targetTeamId,
+                    userId,
+                    role: "PLAYER",
+                },
+            });
+        }
+
+        /* ================= FINALIZE ================= */
 
         return tx.invitation.update({
             where: { id: invitationId },
@@ -470,6 +381,42 @@ export const listInvitationsByUserId = async (userId) => {
     return { data, count };
 };
 
+export const declineInvitation = async (invitationId, userId) => {
+    const invite = await prisma.invitation.findUnique({
+        where: { id: invitationId },
+    });
+
+    if (!invite || invite.status !== "PENDING") {
+        throw new Error("INVALID_INVITATION");
+    }
+
+    // Only the invited player or team admin can decline
+    if (invite.type === "PLAYER" && invite.playerId !== userId) {
+        throw new Error("NOT_AUTHORIZED_TO_DECLINE");
+    }
+
+    if (invite.type === "TEAM") {
+        const membership = await prisma.teamMember.findFirst({
+            where: {
+                teamId: invite.teamId,
+                userId,
+                role: {
+                    in: ["OWNER", "CAPTAIN", "MANAGER"],
+                },
+            },
+        });
+
+        if (!membership) {
+            throw new Error("ONLY_TEAM_ADMIN_CAN_DECLINE");
+        }
+    }
+
+    return prisma.invitation.update({
+        where: { id: invitationId },
+        data: { status: "DECLINED" },
+    });
+};
+
 
 
 export const deleteInvitation = async (invitationId) => {
@@ -487,8 +434,35 @@ export const deleteInvitation = async (invitationId) => {
 };
 
 
-export const listInvitationsByTargetId = async ({ tournamentId, matchId }) => {
-    const where = tournamentId ? { tournamentId } : { matchId };
+// export const listInvitationsByTargetId = async ({ tournamentId, matchId }) => {
+//     const where = tournamentId ? { tournamentId } : { matchId };
+
+//     const [data, count] = await Promise.all([
+//         prisma.invitation.findMany({
+//             where,
+//             include: {
+//                 player: true,
+//                 team: true,
+//             },
+//             orderBy: { createdAt: "desc" },
+//         }),
+//         prisma.invitation.count({ where }),
+//     ]);
+
+//     return { data, count };
+// };
+
+export const listInvitationsByTargetId = async ({
+    tournamentId,
+    matchId,
+    teamId,
+}) => {
+    const where =
+        tournamentId
+            ? { tournamentId }
+            : matchId
+                ? { matchId }
+                : { targetTeamId: teamId };
 
     const [data, count] = await Promise.all([
         prisma.invitation.findMany({

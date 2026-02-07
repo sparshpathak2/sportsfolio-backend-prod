@@ -177,91 +177,85 @@ export const getTeamById = async (id) => {
 };
 
 
+export const updateTeam = async ({
+    teamId,
+    userId,
+    name,
+    logo,
+    city,
+}) => {
+    if (!teamId) throw new Error("TEAM_ID_REQUIRED");
 
-// export const joinTeam = async ({ teamId, userId }) => {
-//     if (!teamId || !userId) {
-//         throw new Error("TEAM_ID_AND_USER_ID_REQUIRED");
-//     }
+    const team = await prisma.team.findUnique({
+        where: { id: teamId },
+    });
 
-//     const existing = await prisma.teamMember.findUnique({
-//         where: {
-//             teamId_userId: { teamId, userId },
-//         },
-//     });
+    if (!team) {
+        throw new Error("TEAM_NOT_FOUND");
+    }
 
-//     if (existing) {
-//         throw new Error("ALREADY_TEAM_MEMBER");
-//     }
+    const membership = await prisma.teamMember.findFirst({
+        where: {
+            teamId,
+            userId,
+            role: {
+                in: ["OWNER", "MANAGER", "CAPTAIN"],
+            },
+        },
+    });
 
-//     return prisma.teamMember.create({
-//         data: {
-//             teamId,
-//             userId,
-//             role: "PLAYER",
-//         },
-//     });
-// };
+    if (!membership) {
+        throw new Error("NOT_AUTHORIZED_TO_UPDATE_TEAM");
+    }
 
+    // ❌ Prevent empty update
+    if (
+        name === undefined &&
+        logo === undefined &&
+        city === undefined
+    ) {
+        throw new Error("NO_FIELDS_TO_UPDATE");
+    }
 
-// export const joinTeam = async ({ teamId, userId }) => {
-//     if (!teamId || !userId) {
-//         throw new Error("TEAM_ID_AND_USER_ID_REQUIRED");
-//     }
+    return prisma.team.update({
+        where: { id: teamId },
+        data: {
+            ...(name !== undefined && { name }),
+            ...(logo !== undefined && { logo }),
+            ...(city !== undefined && { city }),
+        },
+    });
+};
 
-//     // 1️⃣ Check if user is already a team member
-//     const existingMember = await prisma.teamMember.findUnique({
-//         where: { teamId_userId: { teamId, userId } },
-//     });
+export const deleteTeam = async (teamId, userId) => {
+    return prisma.$transaction(async (tx) => {
+        // Check if team exists
+        const team = await tx.team.findUnique({ where: { id: teamId } });
+        if (!team) throw new Error("TEAM_NOT_FOUND");
 
-//     if (existingMember) {
-//         throw new Error("ALREADY_TEAM_MEMBER");
-//     }
+        // Check if user is OWNER
+        const owner = await tx.teamMember.findFirst({
+            where: { teamId, userId, role: "OWNER" },
+        });
+        if (!owner) throw new Error("ONLY_OWNER_CAN_DELETE");
 
-//     // 2️⃣ Check if the user has a pending invitation for this team
-//     const invitation = await prisma.tournamentInvitation.findFirst({
-//         where: {
-//             teamId,
-//             playerId: userId,
-//             status: "PENDING",
-//         },
-//     });
+        // Optional: prevent deleting temporary teams
+        if (team.isTemporary) throw new Error("CANNOT_DELETE_TEMP_TEAM");
 
-//     if (!invitation) {
-//         throw new Error("NO_PENDING_INVITATION");
-//     }
+        // Delete team members
+        await tx.teamMember.deleteMany({ where: { teamId } });
 
-//     // 3️⃣ Add the user as a team member and update the invitation in a transaction
-//     const [member, updatedInvitation] = await prisma.$transaction([
-//         prisma.teamMember.create({
-//             data: {
-//                 teamId,
-//                 userId,
-//                 role: "PLAYER",
-//             },
-//         }),
-//         prisma.tournamentInvitation.update({
-//             where: { id: invitation.id },
-//             data: { status: "ACCEPTED" },
-//         }),
-//     ]);
+        // Delete related invitations
+        await tx.invitation.deleteMany({ where: { teamId } });
 
-//     return {
-//         member,
-//         invitation: updatedInvitation,
-//     };
-// };
+        // Delete tournament participants for this team
+        await tx.tournamentParticipant.deleteMany({ where: { teamId } });
 
+        // Delete the team itself
+        return tx.team.delete({ where: { id: teamId } });
+    });
+};
 
-// export const removeTeamMember = async ({ teamId, userId }) => {
-//     return prisma.teamMember.delete({
-//         where: {
-//             teamId_userId: {
-//                 teamId,
-//                 userId,
-//             },
-//         },
-//     });
-// };
 
 export const joinTeam = async ({ teamId, userId }) => {
     if (!teamId || !userId) {
@@ -317,12 +311,7 @@ export const joinTeam = async ({ teamId, userId }) => {
     };
 };
 
-
-export const removeTeamMember = async ({
-    teamId,
-    userId,
-    requestedByUserId,
-}) => {
+export const removeTeamMember = async ({ teamId, userId, requestedByUserId }) => {
     const requesterRole = await getRequesterRole({
         teamId,
         userId: requestedByUserId,
@@ -350,6 +339,7 @@ export const removeTeamMember = async ({
         },
     });
 };
+
 
 
 export const listTeamMembers = async (teamId) => {

@@ -17,7 +17,7 @@ router.get("/", matchController.listMatches);
 
 // POST /matches
 // POST /tournaments/:tournamentId/matches
-router.post("/", matchController.createMatch);
+router.post("/", matchController.createQuickMatch);
 
 /* =====================
    MATCH READ
