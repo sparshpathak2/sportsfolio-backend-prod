@@ -499,8 +499,54 @@ export const listInvitations = async () => {
     });
 };
 
+// export const listInvitationsByUserId = async (userId) => {
+//     const where = { playerId: userId };
+
+//     const [data, count] = await Promise.all([
+//         prisma.invitation.findMany({
+//             where,
+//             orderBy: { createdAt: "desc" },
+//             include: {
+//                 tournament: {
+//                     include: {
+//                         locations: true,
+//                     },
+//                 },
+//                 team: true,
+//                 targetTeam: true,
+//             },
+//         }),
+//         prisma.invitation.count({ where }),
+//     ]);
+
+//     return { data, count };
+// };
+
 export const listInvitationsByUserId = async (userId) => {
-    const where = { playerId: userId };
+    const adminTeams = await prisma.teamMember.findMany({
+        where: {
+            userId,
+            role: {
+                in: ["OWNER", "MANAGER", "CAPTAIN"],
+            },
+        },
+        select: { teamId: true },
+    });
+
+    const adminTeamIds = adminTeams.map(t => t.teamId);
+
+    const where = {
+        OR: [
+            // Player invites
+            { playerId: userId },
+
+            // Team invites (where user is admin)
+            {
+                type: "TEAM",
+                teamId: { in: adminTeamIds },
+            },
+        ],
+    };
 
     const [data, count] = await Promise.all([
         prisma.invitation.findMany({
@@ -508,12 +554,10 @@ export const listInvitationsByUserId = async (userId) => {
             orderBy: { createdAt: "desc" },
             include: {
                 tournament: {
-                    include: {
-                        locations: true,
-                    },
+                    include: { locations: true },
                 },
-                team: true,
-                targetTeam: true,
+                team: true,        // invited team
+                targetTeam: true,  // optional
             },
         }),
         prisma.invitation.count({ where }),
@@ -521,6 +565,7 @@ export const listInvitationsByUserId = async (userId) => {
 
     return { data, count };
 };
+
 
 export const declineInvitation = async (invitationId, userId) => {
     const invite = await prisma.invitation.findUnique({
