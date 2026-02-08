@@ -250,23 +250,125 @@ export const recordEvent = async ({ matchId, type, payload }) => {
 
 
 
-export const createMatch = async ({
-    tournamentId,
+// export const createMatch = async ({
+//     tournamentId,
+//     sportCode,
+//     locationId,
+//     playArea,
+//     gameType,
+//     partsCount,
+//     startTime,
+//     officialUserPhone,
+//     participantIds,           // array of User IDs
+//     servingParticipantId, // optional, User ID
+// }) => {
+//     if (!locationId) throw new Error("LOCATION_REQUIRED");
+//     if (playArea === undefined || playArea === null) throw new Error("PLAY_AREA_REQUIRED");
+//     if (!officialUserPhone) throw new Error("OFFICIAL_PHONE_REQUIRED");
+
+//     /* Validate game type */
+//     if (gameType === "SINGLES" && participantIds.length !== 2) {
+//         throw new Error("SINGLES_MATCH_REQUIRES_2_PARTICIPANTS");
+//     }
+
+//     if (gameType === "DOUBLES" && participantIds.length !== 4) {
+//         throw new Error("DOUBLES_MATCH_REQUIRES_4_PARTICIPANTS");
+//     }
+
+//     if (
+//         servingParticipantId &&
+//         !participantIds.includes(servingParticipantId)
+//     ) {
+//         throw new Error("INVALID_SERVING_PARTICIPANT");
+//     }
+
+//     return prisma.$transaction(async (tx) => {
+//         // 1️⃣ Handle official user
+//         let officialUser = await tx.user.findUnique({
+//             where: { phone: officialUserPhone },
+//         });
+//         if (!officialUser) {
+//             officialUser = await tx.user.create({ data: { phone: officialUserPhone } });
+//         }
+
+//         // 2️⃣ Optional: Tournament validation
+//         if (tournamentId) {
+//             const rules = await tx.tournamentRules.findUnique({ where: { tournamentId } });
+//             if (!rules) throw new Error("TOURNAMENT_RULES_NOT_FOUND");
+//             if (rules.gameType !== gameType) throw new Error("GAME_TYPE_MISMATCH_WITH_TOURNAMENT");
+//             if (!partsCount) partsCount = rules.partsPerMatch;
+//         }
+
+//         if (!partsCount) throw new Error("PARTS_COUNT_REQUIRED");
+
+//         // 3️⃣ Create match
+//         const match = await tx.match.create({
+//             data: {
+//                 tournamentId: tournamentId ?? null,
+//                 sportCode,
+//                 locationId,
+//                 playArea,
+//                 gameType,
+//                 partsCount,
+//                 startTime,
+//                 status: startTime ? "SCHEDULED" : "LIVE",
+//                 officialUserId: officialUser.id,
+//             },
+//         });
+
+//         // 4️⃣ Create match participants
+//         const participantsData = participantIds.map((userId, index) => ({
+//             matchId: match.id,
+//             userId,
+//             position: index + 1,
+//             team: gameType === "DOUBLES" ? (index < 2 ? 1 : 2) : null,
+//         }));
+
+//         const createdParticipants = await tx.matchParticipant.createMany({
+//             data: participantsData,
+//         });
+
+//         // 5️⃣ Set servingParticipantId if provided
+//         if (servingParticipantId) {
+//             const serving = await tx.matchParticipant.findFirst({
+//                 where: { matchId: match.id, userId: servingParticipantId },
+//             });
+//             if (!serving) throw new Error("SERVING_PARTICIPANT_NOT_FOUND");
+//             await tx.match.update({
+//                 where: { id: match.id },
+//                 data: { servingParticipantId: serving.id },
+//             });
+//         }
+
+//         // 6️⃣ Create match parts
+//         await tx.matchPart.createMany({
+//             data: Array.from({ length: partsCount }).map((_, index) => ({
+//                 matchId: match.id,
+//                 partNumber: index + 1,
+//             })),
+//         });
+
+//         return match;
+//     });
+// };
+
+export const createQuickMatch = async ({
+    name,
     sportCode,
-    locationId,
+    tournamentId,
+    locations,
     playArea,
     gameType,
     partsCount,
     startTime,
     officialUserPhone,
-    participantIds,           // array of User IDs
-    servingParticipantId, // optional, User ID
+    participantIds,
+    servingParticipantId,
 }) => {
-    if (!locationId) throw new Error("LOCATION_REQUIRED");
+    if (!locations?.length) throw new Error("LOCATIONS_REQUIRED");
     if (playArea === undefined || playArea === null) throw new Error("PLAY_AREA_REQUIRED");
     if (!officialUserPhone) throw new Error("OFFICIAL_PHONE_REQUIRED");
 
-    /* Validate game type */
     if (gameType === "SINGLES" && participantIds.length !== 2) {
         throw new Error("SINGLES_MATCH_REQUIRES_2_PARTICIPANTS");
     }
@@ -275,23 +377,39 @@ export const createMatch = async ({
         throw new Error("DOUBLES_MATCH_REQUIRES_4_PARTICIPANTS");
     }
 
-    if (
-        servingParticipantId &&
-        !participantIds.includes(servingParticipantId)
-    ) {
+    if (servingParticipantId && !participantIds.includes(servingParticipantId)) {
         throw new Error("INVALID_SERVING_PARTICIPANT");
     }
 
     return prisma.$transaction(async (tx) => {
-        // 1️⃣ Handle official user
-        let officialUser = await tx.user.findUnique({
-            where: { phone: officialUserPhone },
-        });
+        // 1️⃣ Ensure official user exists
+        let officialUser = await tx.user.findUnique({ where: { phone: officialUserPhone } });
         if (!officialUser) {
             officialUser = await tx.user.create({ data: { phone: officialUserPhone } });
         }
 
-        // 2️⃣ Optional: Tournament validation
+        // 2️⃣ Handle location (connectOrCreate)
+        const locationId = locations[0]?.id ?? null; // pick first location for quick match
+        if (!locationId) {
+            const loc = locations[0];
+            const createdLocation = await tx.location.upsert({
+                where: {
+                    name_address: { name: loc.name, address: loc.address },
+                },
+                create: {
+                    name: loc.name,
+                    address: loc.address,
+                    city: loc.city ?? null,
+                    state: loc.state ?? null,
+                    country: loc.country ?? "India",
+                    zipCode: loc.zipCode ?? null,
+                },
+                update: {}, // no-op
+            });
+            locations[0].id = createdLocation.id;
+        }
+
+        // 3️⃣ Optional: Validate tournament rules
         if (tournamentId) {
             const rules = await tx.tournamentRules.findUnique({ where: { tournamentId } });
             if (!rules) throw new Error("TOURNAMENT_RULES_NOT_FOUND");
@@ -301,22 +419,23 @@ export const createMatch = async ({
 
         if (!partsCount) throw new Error("PARTS_COUNT_REQUIRED");
 
-        // 3️⃣ Create match
+        // 4️⃣ Create the match
         const match = await tx.match.create({
             data: {
                 tournamentId: tournamentId ?? null,
                 sportCode,
-                locationId,
+                locationId: locations[0].id,
                 playArea,
                 gameType,
                 partsCount,
                 startTime,
                 status: startTime ? "SCHEDULED" : "LIVE",
                 officialUserId: officialUser.id,
+                name,
             },
         });
 
-        // 4️⃣ Create match participants
+        // 5️⃣ Add participants
         const participantsData = participantIds.map((userId, index) => ({
             matchId: match.id,
             userId,
@@ -324,33 +443,29 @@ export const createMatch = async ({
             team: gameType === "DOUBLES" ? (index < 2 ? 1 : 2) : null,
         }));
 
-        const createdParticipants = await tx.matchParticipant.createMany({
-            data: participantsData,
-        });
+        await tx.matchParticipant.createMany({ data: participantsData });
 
-        // 5️⃣ Set servingParticipantId if provided
+        // 6️⃣ Set serving participant if exists
         if (servingParticipantId) {
             const serving = await tx.matchParticipant.findFirst({
                 where: { matchId: match.id, userId: servingParticipantId },
             });
             if (!serving) throw new Error("SERVING_PARTICIPANT_NOT_FOUND");
-            await tx.match.update({
-                where: { id: match.id },
-                data: { servingParticipantId: serving.id },
-            });
+            await tx.match.update({ where: { id: match.id }, data: { servingParticipantId: serving.id } });
         }
 
-        // 6️⃣ Create match parts
+        // 7️⃣ Create match parts
         await tx.matchPart.createMany({
-            data: Array.from({ length: partsCount }).map((_, index) => ({
+            data: Array.from({ length: partsCount }).map((_, i) => ({
                 matchId: match.id,
-                partNumber: index + 1,
+                partNumber: i + 1,
             })),
         });
 
         return match;
     });
 };
+
 
 
 // export const createBracketMatch = async ({
@@ -515,6 +630,207 @@ export const listMatchesByTournament = async (tournamentId) => {
             { matchNumber: "asc" },
         ],
     });
+};
+
+
+// export const listMatches = async ({
+//     requesterId,
+//     tournamentId,
+//     status,
+//     scope,
+//     page,
+//     limit,
+// }) => {
+//     const now = new Date();
+
+//     const where = {};
+
+//     if (tournamentId) where.tournamentId = tournamentId;
+
+//     /* ------------------
+//        STATUS FILTER
+//     ------------------ */
+//     if (status === "upcoming") {
+//         where.startTime = { gt: now };
+//     }
+
+//     if (status === "ongoing") {
+//         where.startTime = { lte: now };
+//         where.OR = [
+//             { endTime: null },
+//             { endTime: { gte: now } },
+//         ];
+//     }
+
+//     if (status === "completed") {
+//         where.OR = [
+//             { endTime: { lt: now } },
+//             { status: "COMPLETED" },
+//         ];
+//     }
+
+//     /* ------------------
+//        MY MATCHES
+//     ------------------ */
+//     if (scope === "my" && requesterId) {
+//         where.OR = [
+//             {
+//                 participants: {
+//                     some: {
+//                         OR: [
+//                             { userId: requesterId },
+//                             { team: { members: { some: { userId: requesterId } } } },
+//                         ],
+//                     },
+//                 },
+//             },
+//             {
+//                 invitations: {
+//                     some: {
+//                         playerId: requesterId,
+//                         status: "ACCEPTED",
+//                     },
+//                 },
+//             },
+//         ];
+//     }
+
+//     /* ------------------
+//        PAGINATION
+//     ------------------ */
+//     const skip = (page - 1) * limit;
+
+//     const [items, total] = await Promise.all([
+//         prisma.match.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { startTime: "desc" },
+//             include: {
+//                 participants: {
+//                     include: {
+//                         user: true,
+//                         // team: true,
+//                     },
+//                 },
+//                 tournament: true,
+//             },
+//         }),
+//         prisma.match.count({ where }),
+//     ]);
+
+//     const formattedMatches = items.map((match) => ({
+//         ...match,
+//         participants: match.participants.map((p) => ({
+//             id: p.id,
+//             user: {
+//                 id: p.user.id,
+//                 name: p.user.name,
+//                 username: p.user.username,
+//                 phone: p.user.phone,
+//             },
+//             team: match.gameType === "DOUBLES" ? p.team : null,
+//             position: p.position,
+//         })),
+//         isParticipant: requesterId
+//             ? match.participants.some(
+//                 (p) => p.userId === requesterId || p.team?.members?.some((m) => m.userId === requesterId)
+//             )
+//             : false,
+//     }));
+
+//     return {
+//         meta: {
+//             page,
+//             limit,
+//             total,
+//             totalPages: Math.ceil(total / limit),
+//         },
+//         data: formattedMatches,
+//     };
+// };
+
+export const listMatches = async ({
+    requesterId,
+    tournamentId,
+    status,
+    scope = "all",
+    page = 1,
+    limit = 10,
+}) => {
+    const now = new Date();
+    const where = {};
+
+    // ----------------- TOURNAMENT FILTER -----------------
+    if (tournamentId) where.tournamentId = tournamentId;
+
+    // ----------------- STATUS FILTER -----------------
+    if (status === "upcoming") {
+        where.startTime = { gt: now };
+    } else if (status === "ongoing") {
+        where.startTime = { lte: now };
+        where.OR = [{ endTime: null }, { endTime: { gte: now } }];
+    } else if (status === "completed") {
+        where.OR = [{ endTime: { lt: now } }, { status: "COMPLETED" }];
+    } else if (["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"].includes(status)) {
+        where.status = status;
+    }
+
+    // ----------------- MY MATCHES -----------------
+    if (scope === "my" && requesterId) {
+        where.OR = [
+            { participants: { some: { userId: requesterId } } },
+            { Invitation: { some: { playerId: requesterId, status: "ACCEPTED" } } },
+        ];
+    }
+
+    // ----------------- PAGINATION -----------------
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+        prisma.match.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { startTime: "desc" },
+            include: {
+                participants: { include: { user: true } },
+                tournament: true,
+                location: true,
+                parts: true,
+                Invitation: true,
+            },
+        }),
+        prisma.match.count({ where }),
+    ]);
+
+    const formattedMatches = items.map((match) => ({
+        ...match,
+        participants: match.participants.map((p) => ({
+            id: p.id,
+            user: {
+                id: p.user.id,
+                name: p.user.name,
+                username: p.user.username,
+                phone: p.user.phone,
+            },
+            team: match.gameType === "DOUBLES" ? p.team : null,
+            position: p.position,
+        })),
+        isParticipant: requesterId
+            ? match.participants.some((p) => p.userId === requesterId)
+            : false,
+    }));
+
+    return {
+        meta: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit),
+        },
+        data: formattedMatches,
+    };
 };
 
 

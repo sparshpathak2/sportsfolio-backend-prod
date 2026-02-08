@@ -3,24 +3,61 @@ import * as invitationService from "./invitation.service.js";
 /* =====================
    INVITE TO TOURNAMENT / MATCH
    ===================== */
+// export const invite = async (req, res) => {
+//     try {
+//         const { tournamentId, matchId } = req.params;
+//         const { type, playerId, teamId } = req.body;
+
+//         if (!type) return res.status(400).json({ message: "INVITATION_TYPE_REQUIRED" });
+
+//         const invitation = await invitationService.createInvitation({
+//             tournamentId,
+//             matchId,
+//             type,
+//             playerId,
+//             teamId,
+//         });
+
+//         res.status(201).json({
+//             success: true,
+//             message: tournamentId ? "TOURNAMENT_INVITATION_SENT" : "MATCH_INVITATION_SENT",
+//             data: invitation,
+//         });
+//     } catch (err) {
+//         console.error("Invite Error:", err);
+//         res.status(400).json({
+//             success: false,
+//             message: err.message,
+//         });
+//     }
+// };
+
 export const invite = async (req, res) => {
     try {
-        const { tournamentId, matchId } = req.params;
-        const { type, playerId, teamId } = req.body;
+        const { tournamentId, matchId, teamId } = req.params;
+        const { type, playerId, teamId: invitedTeamId } = req.body;
 
-        if (!type) return res.status(400).json({ message: "INVITATION_TYPE_REQUIRED" });
+        if (!type) {
+            return res.status(400).json({ message: "INVITATION_TYPE_REQUIRED" });
+        }
 
         const invitation = await invitationService.createInvitation({
-            tournamentId,
-            matchId,
             type,
             playerId,
-            teamId,
+            invitedTeamId,
+            tournamentId,
+            matchId,
+            targetTeamId: teamId,
         });
+
+        let message = "INVITATION_SENT";
+        if (tournamentId) message = "TOURNAMENT_INVITATION_SENT";
+        else if (matchId) message = "MATCH_INVITATION_SENT";
+        else if (teamId) message = "TEAM_INVITATION_SENT";
 
         res.status(201).json({
             success: true,
-            message: tournamentId ? "TOURNAMENT_INVITATION_SENT" : "MATCH_INVITATION_SENT",
+            message,
             data: invitation,
         });
     } catch (err) {
@@ -97,11 +134,43 @@ export const listInvitationsByUserId = async (req, res) => {
     }
 };
 
+// export const listInvitationsByTargetId = async (req, res) => {
+//     try {
+//         const { tournamentId, matchId } = req.params;
+
+//         if (!tournamentId && !matchId) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "TARGET_ID_REQUIRED",
+//             });
+//         }
+
+//         const { data, count } =
+//             await invitationService.listInvitationsByTargetId({
+//                 tournamentId,
+//                 matchId,
+//             });
+
+//         res.json({
+//             success: true,
+//             count,
+//             data,
+//         });
+//     } catch (error) {
+//         console.error("List Invitations Error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const listInvitationsByTargetId = async (req, res) => {
     try {
-        const { tournamentId, matchId } = req.params;
+        const { tournamentId, matchId, teamId } = req.params;
 
-        if (!tournamentId && !matchId) {
+        // exactly ONE target must exist
+        if (!tournamentId && !matchId && !teamId) {
             return res.status(400).json({
                 success: false,
                 message: "TARGET_ID_REQUIRED",
@@ -112,6 +181,7 @@ export const listInvitationsByTargetId = async (req, res) => {
             await invitationService.listInvitationsByTargetId({
                 tournamentId,
                 matchId,
+                teamId,
             });
 
         res.json({
@@ -127,6 +197,29 @@ export const listInvitationsByTargetId = async (req, res) => {
         });
     }
 };
+
+/* =====================
+   DECLINE INVITATION
+   ===================== */
+export const declineInvitation = async (req, res) => {
+    try {
+        const { invitationId } = req.params;
+        const userId = req.user.id; // ✅ Authenticated user
+
+        const invitation = await invitationService.declineInvitation(invitationId, userId);
+
+        res.json({
+            success: true,
+            data: invitation,
+        });
+    } catch (error) {
+        res.status(400).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
 
 
 /* =====================
