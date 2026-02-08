@@ -173,6 +173,8 @@ model Team {
   invitations              Invitation[]
   requests                 TournamentRequest[]
 
+  targetInvitations Invitation[] @relation("TargetTeam")
+
   createdAt DateTime @default(now())
 }
 
@@ -208,6 +210,9 @@ model Invitation {
   match      Match?      @relation(fields: [matchId], references: [id], onDelete: Cascade)
   player     User?       @relation(fields: [playerId], references: [id], onDelete: Cascade)
   team       Team?       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  // 👇 NEW — isolated
+  targetTeam Team? @relation("TargetTeam", fields: [targetTeamId], references: [id], onDelete: Cascade)
 
   createdAt DateTime @default(now())
 

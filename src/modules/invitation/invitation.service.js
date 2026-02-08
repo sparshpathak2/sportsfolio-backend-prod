@@ -373,6 +373,7 @@ export const listInvitationsByUserId = async (userId) => {
                     },
                 },
                 team: true,
+                targetTeam: true,
             },
         }),
         prisma.invitation.count({ where }),
