@@ -85,28 +85,81 @@ export const createTeam = async (req, res) => {
 //     }
 // };
 
+// export const listTeams = async (req, res) => {
+//     try {
+//         const { page = 1, limit = 20, query, city, sportCode, tournamentId } = req.query;
+
+//         let cityFilter = city;
+
+//         // If tournamentId is provided, override city with tournament city
+//         if (tournamentId) {
+//             const tournament = await prisma.tournament.findUnique({
+//                 where: { id: tournamentId },
+//                 select: { city: true },
+//             });
+//             if (!tournament) {
+//                 return res.status(404).json({ success: false, message: "TOURNAMENT_NOT_FOUND" });
+//             }
+//             cityFilter = tournament.city;
+//         }
+
+//         let searchQuery = query;
+//         if (!searchQuery || searchQuery.toLowerCase() === "null") {
+//             searchQuery = undefined;
+//         }
+
+//         const { teams, totalCount } = await teamService.listTeams({
+//             city: cityFilter,
+//             query: searchQuery,
+//             sportCode,
+//             page: Number(page),
+//             limit: Number(limit),
+//         });
+
+//         res.json({
+//             success: true,
+//             count: totalCount,
+//             page: Number(page),
+//             limit: Number(limit),
+//             data: teams,
+//         });
+//     } catch (error) {
+//         console.error("List Teams Error:", error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
+
 export const listTeams = async (req, res) => {
     try {
-        const { page = 1, limit = 20, query, city, sportCode, tournamentId } = req.query;
+        const {
+            page = 1,
+            limit = 20,
+            query,
+            city,
+            sportCode,
+            tournamentId,
+            scope = "all", // 👈 NEW
+        } = req.query;
 
         let cityFilter = city;
 
-        // If tournamentId is provided, override city with tournament city
         if (tournamentId) {
             const tournament = await prisma.tournament.findUnique({
                 where: { id: tournamentId },
                 select: { city: true },
             });
+
             if (!tournament) {
-                return res.status(404).json({ success: false, message: "TOURNAMENT_NOT_FOUND" });
+                return res
+                    .status(404)
+                    .json({ success: false, message: "TOURNAMENT_NOT_FOUND" });
             }
+
             cityFilter = tournament.city;
         }
 
-        let searchQuery = query;
-        if (!searchQuery || searchQuery.toLowerCase() === "null") {
-            searchQuery = undefined;
-        }
+        const searchQuery =
+            query && query.toLowerCase() !== "null" ? query : undefined;
 
         const { teams, totalCount } = await teamService.listTeams({
             city: cityFilter,
@@ -114,6 +167,8 @@ export const listTeams = async (req, res) => {
             sportCode,
             page: Number(page),
             limit: Number(limit),
+            scope,
+            userId: req.user?.id, // 👈 needed for "my"
         });
 
         res.json({
@@ -128,6 +183,7 @@ export const listTeams = async (req, res) => {
         res.status(500).json({ success: false, message: error.message });
     }
 };
+
 
 export const getTeamById = async (req, res) => {
     try {

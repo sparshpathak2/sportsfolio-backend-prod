@@ -95,31 +95,94 @@ export const createTeam = async ({ name, sportCode, ownerUserId, logo, city }) =
 //     });
 // };
 
-export const listTeams = async ({ city, query, sportCode, page = 1, limit = 20 } = {}) => {
+// export const listTeams = async ({ city, query, sportCode, page = 1, limit = 20 } = {}) => {
+//     const andFilters = [];
+
+//     // City filter - case-insensitive
+//     if (city && city.toLowerCase() !== "null") {
+//         andFilters.push({
+//             city: {
+//                 equals: city,
+//                 mode: "insensitive"
+//             }
+//         });
+//     }
+
+//     // SportCode filter
+//     if (sportCode && sportCode.toLowerCase() !== "null") {
+//         andFilters.push({ sportCode: sportCode.toUpperCase() });
+//     }
+
+//     // Search query filter
+//     const searchQuery = query?.trim();
+//     if (searchQuery && searchQuery.toLowerCase() !== "null") {
+//         andFilters.push({ name: { contains: searchQuery, mode: "insensitive" } });
+//     }
+
+//     const where = andFilters.length > 0 ? { AND: andFilters } : {};
+
+//     const skip = (page - 1) * limit;
+
+//     const teams = await prisma.team.findMany({
+//         where,
+//         include: {
+//             members: {
+//                 include: { user: { select: { id: true, name: true, phone: true, city: true } } },
+//             },
+//             _count: { select: { members: true } },
+//         },
+//         skip,
+//         take: limit,
+//         orderBy: { createdAt: "desc" },
+//     });
+
+//     const totalCount = await prisma.team.count({ where });
+
+//     return { teams, totalCount };
+// };
+
+export const listTeams = async ({
+    city,
+    query,
+    sportCode,
+    page = 1,
+    limit = 20,
+    scope = "all",
+    userId,
+} = {}) => {
     const andFilters = [];
 
-    // City filter - case-insensitive
+    // City filter
     if (city && city.toLowerCase() !== "null") {
         andFilters.push({
-            city: {
-                equals: city,
-                mode: "insensitive"
-            }
+            city: { equals: city, mode: "insensitive" },
         });
     }
 
-    // SportCode filter
+    // Sport filter
     if (sportCode && sportCode.toLowerCase() !== "null") {
         andFilters.push({ sportCode: sportCode.toUpperCase() });
     }
 
-    // Search query filter
-    const searchQuery = query?.trim();
-    if (searchQuery && searchQuery.toLowerCase() !== "null") {
-        andFilters.push({ name: { contains: searchQuery, mode: "insensitive" } });
+    // Name search
+    if (query?.trim()) {
+        andFilters.push({
+            name: { contains: query.trim(), mode: "insensitive" },
+        });
     }
 
-    const where = andFilters.length > 0 ? { AND: andFilters } : {};
+    // 👇 Scope filter
+    if (scope === "my") {
+        if (!userId) throw new Error("UNAUTHORIZED");
+
+        andFilters.push({
+            members: {
+                some: { userId },
+            },
+        });
+    }
+
+    const where = andFilters.length ? { AND: andFilters } : {};
 
     const skip = (page - 1) * limit;
 
@@ -127,7 +190,11 @@ export const listTeams = async ({ city, query, sportCode, page = 1, limit = 20 }
         where,
         include: {
             members: {
-                include: { user: { select: { id: true, name: true, phone: true, city: true } } },
+                include: {
+                    user: {
+                        select: { id: true, name: true, phone: true, city: true },
+                    },
+                },
             },
             _count: { select: { members: true } },
         },
@@ -140,6 +207,7 @@ export const listTeams = async ({ city, query, sportCode, page = 1, limit = 20 }
 
     return { teams, totalCount };
 };
+
 
 /* =====================
    GET TEAM
