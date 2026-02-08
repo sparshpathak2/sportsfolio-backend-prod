@@ -10,6 +10,23 @@ const generateTempTeamName = () => {
     return `T-${hh}${mm}${ss}`;
 };
 
+const ensureTeamMember = async (tx, teamId, userId, role = "PLAYER") => {
+    const exists = await tx.teamMember.findFirst({
+        where: { teamId, userId },
+    });
+
+    if (!exists) {
+        await tx.teamMember.create({
+            data: {
+                teamId,
+                userId,
+                role,
+            },
+        });
+    }
+};
+
+
 export const createInvitation = async ({
     type,
     playerId,
@@ -230,6 +247,123 @@ export const createInvitation = async ({
 };
 
 
+// export const acceptInvitation = async (invitationId, userId) => {
+//     return prisma.$transaction(async (tx) => {
+//         const invite = await tx.invitation.findUnique({
+//             where: { id: invitationId },
+//             include: {
+//                 tournament: { include: { rules: true } },
+//             },
+//         });
+
+//         if (!invite || invite.status !== "PENDING") {
+//             throw new Error("INVALID_INVITATION");
+//         }
+
+//         /* ================= AUTH ================= */
+
+//         if (invite.type === "PLAYER" && invite.playerId !== userId) {
+//             throw new Error("NOT_AUTHORIZED");
+//         }
+
+//         if (invite.type === "TEAM") {
+//             const admin = await tx.teamMember.findFirst({
+//                 where: {
+//                     teamId: invite.teamId,
+//                     userId,
+//                     role: {
+//                         in: [
+//                             TeamMemberRole.OWNER,
+//                             TeamMemberRole.MANAGER,
+//                             TeamMemberRole.CAPTAIN,
+//                         ],
+//                     },
+//                 },
+//             });
+//             if (!admin) {
+//                 throw new Error("ONLY_TEAM_ADMIN_CAN_ACCEPT");
+//             }
+//         }
+
+//         /* ================= TOURNAMENT ================= */
+
+//         if (invite.tournamentId) {
+//             const gameType = invite.tournament.rules.gameType;
+
+//             if (invite.type === "PLAYER") {
+//                 if (gameType === "SINGLES") {
+//                     await tx.tournamentParticipant.create({
+//                         data: {
+//                             tournamentId: invite.tournamentId,
+//                             playerId: userId,
+//                         },
+//                     });
+//                 }
+
+//                 if (gameType === "DOUBLES") {
+//                     if (!invite.teamId) {
+//                         throw new Error("TEMP_TEAM_MISSING");
+//                     }
+
+//                     await tx.teamMember.create({
+//                         data: {
+//                             teamId: invite.teamId,
+//                             userId,
+//                             role: "PLAYER",
+//                         },
+//                     });
+
+//                     await tx.tournamentParticipant.create({
+//                         data: {
+//                             tournamentId: invite.tournamentId,
+//                             teamId: invite.teamId,
+//                         },
+//                     });
+//                 }
+//             }
+
+//             if (invite.type === "TEAM") {
+//                 await tx.tournamentParticipant.create({
+//                     data: {
+//                         tournamentId: invite.tournamentId,
+//                         teamId: invite.teamId,
+//                     },
+//                 });
+//             }
+//         }
+
+//         /* ================= MATCH ================= */
+
+//         if (invite.matchId && invite.type === "PLAYER") {
+//             await tx.matchParticipant.create({
+//                 data: {
+//                     matchId: invite.matchId,
+//                     userId,
+//                 },
+//             });
+//         }
+
+//         /* ================= PLAYER → TEAM ================= */
+
+//         if (invite.targetTeamId && invite.type === "PLAYER") {
+//             await tx.teamMember.create({
+//                 data: {
+//                     teamId: invite.targetTeamId,
+//                     userId,
+//                     role: "PLAYER",
+//                 },
+//             });
+//         }
+
+//         /* ================= FINALIZE ================= */
+
+//         return tx.invitation.update({
+//             where: { id: invitationId },
+//             data: { status: "ACCEPTED" },
+//         });
+//     });
+// };
+
 export const acceptInvitation = async (invitationId, userId) => {
     return prisma.$transaction(async (tx) => {
         const invite = await tx.invitation.findUnique({
@@ -250,19 +384,20 @@ export const acceptInvitation = async (invitationId, userId) => {
         }
 
         if (invite.type === "TEAM") {
+            if (!invite.teamId) {
+                throw new Error("TEAM_ID_MISSING");
+            }
+
             const admin = await tx.teamMember.findFirst({
                 where: {
                     teamId: invite.teamId,
                     userId,
                     role: {
-                        in: [
-                            TeamMemberRole.OWNER,
-                            TeamMemberRole.MANAGER,
-                            TeamMemberRole.CAPTAIN,
-                        ],
+                        in: ["OWNER", "MANAGER", "CAPTAIN"],
                     },
                 },
             });
+
             if (!admin) {
                 throw new Error("ONLY_TEAM_ADMIN_CAN_ACCEPT");
             }
@@ -271,8 +406,13 @@ export const acceptInvitation = async (invitationId, userId) => {
         /* ================= TOURNAMENT ================= */
 
         if (invite.tournamentId) {
-            const gameType = invite.tournament.rules.gameType;
+            const gameType = invite.tournament?.rules?.gameType;
 
+            if (!gameType) {
+                throw new Error("TOURNAMENT_RULES_NOT_SET");
+            }
+
+            /* PLAYER → TOURNAMENT */
             if (invite.type === "PLAYER") {
                 if (gameType === "SINGLES") {
                     await tx.tournamentParticipant.create({
@@ -288,13 +428,12 @@ export const acceptInvitation = async (invitationId, userId) => {
                         throw new Error("TEMP_TEAM_MISSING");
                     }
 
-                    await tx.teamMember.create({
-                        data: {
-                            teamId: invite.teamId,
-                            userId,
-                            role: "PLAYER",
-                        },
-                    });
+                    await ensureTeamMember(
+                        tx,
+                        invite.teamId,
+                        userId,
+                        "PLAYER"
+                    );
 
                     await tx.tournamentParticipant.create({
                         data: {
@@ -305,6 +444,7 @@ export const acceptInvitation = async (invitationId, userId) => {
                 }
             }
 
+            /* TEAM → TOURNAMENT */
             if (invite.type === "TEAM") {
                 await tx.tournamentParticipant.create({
                     data: {
@@ -328,14 +468,13 @@ export const acceptInvitation = async (invitationId, userId) => {
 
         /* ================= PLAYER → TEAM ================= */
 
-        if (invite.targetTeamId && invite.type === "PLAYER") {
-            await tx.teamMember.create({
-                data: {
-                    teamId: invite.targetTeamId,
-                    userId,
-                    role: "PLAYER",
-                },
-            });
+        if (invite.type === "PLAYER" && invite.targetTeamId) {
+            await ensureTeamMember(
+                tx,
+                invite.targetTeamId,
+                userId,
+                "PLAYER"
+            );
         }
 
         /* ================= FINALIZE ================= */
@@ -346,6 +485,7 @@ export const acceptInvitation = async (invitationId, userId) => {
         });
     });
 };
+
 
 
 export const listInvitations = async () => {
@@ -453,17 +593,45 @@ export const deleteInvitation = async (invitationId) => {
 //     return { data, count };
 // };
 
+// export const listInvitationsByTargetId = async ({
+//     tournamentId,
+//     matchId,
+//     teamId,
+// }) => {
+//     const where =
+//         tournamentId
+//             ? { tournamentId }
+//             : matchId
+//                 ? { matchId }
+//                 : { targetTeamId: teamId };
+
+//     const [data, count] = await Promise.all([
+//         prisma.invitation.findMany({
+//             where,
+//             include: {
+//                 player: true,
+//                 team: true,
+//             },
+//             orderBy: { createdAt: "desc" },
+//         }),
+//         prisma.invitation.count({ where }),
+//     ]);
+
+//     return { data, count };
+// };
+
 export const listInvitationsByTargetId = async ({
     tournamentId,
     matchId,
     teamId,
+    status,
 }) => {
-    const where =
-        tournamentId
-            ? { tournamentId }
-            : matchId
-                ? { matchId }
-                : { targetTeamId: teamId };
+    const where = {
+        ...(tournamentId && { tournamentId }),
+        ...(matchId && { matchId }),
+        ...(teamId && { targetTeamId: teamId }),
+        ...(status && { status }), // ✅ filter applied here
+    };
 
     const [data, count] = await Promise.all([
         prisma.invitation.findMany({
@@ -479,3 +647,4 @@ export const listInvitationsByTargetId = async ({
 
     return { data, count };
 };
+
