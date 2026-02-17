@@ -1,5 +1,5 @@
 import prisma from "../../../lib/prisma.js";
-import { shuffle } from "../matchMaking/helpers/shuffle.js";
+import { shuffle } from "../matchMaking/helpers/shuffle.helpers.js";
 import { createBracketMatch } from "../../match/match.service.js";
 
 // export const generateKnockoutNextRound = async (tournamentId) => {

@@ -28,6 +28,7 @@ enum MatchStatus {
   LIVE
   COMPLETED
   CANCELLED
+  PENDING
 }
 
 enum ScheduleType {
@@ -175,7 +176,9 @@ model Team {
 
   targetInvitations Invitation[] @relation("TargetTeam")
 
-  createdAt DateTime @default(now())
+  createdAt         DateTime           @default(now())
+  bracketNodes      BracketNode[]
+  matchParticipants MatchParticipant[]
 }
 
 model TeamMember {
@@ -309,10 +312,11 @@ model Tournament {
   participants TournamentParticipant[]
   matches      Match[]
 
-  createdAt   DateTime            @default(now())
-  updatedAt   DateTime            @updatedAt
-  invitations Invitation[]
-  requests    TournamentRequest[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  invitations  Invitation[]
+  requests     TournamentRequest[]
+  bracketNodes BracketNode[]
 }
 
 model TournamentRules {
@@ -372,6 +376,61 @@ model TournamentParticipant {
 
 // ===================== MATCH ===================== //
 
+// model Match {
+//   id           String    @id @default(cuid())
+//   name         String?
+//   tournamentId String?
+//   sportCode    SportCode
+//   playArea     Int?
+
+//   gameType    GameType
+//   partsCount  Int
+//   round       Int? // 1, 2, 3...
+//   matchNumber Int? // 1, 2, 3... inside a round
+
+//   locationId String
+//   location   Location @relation(fields: [locationId], references: [id])
+
+//   status MatchStatus @default(SCHEDULED)
+
+//   startTime DateTime?
+//   endTime   DateTime?
+
+//   startedAt   DateTime?
+//   completedAt DateTime?
+
+//   officialUserId String?
+//   official       User?   @relation("MatchOfficial", fields: [officialUserId], references: [id])
+
+//   // ✅ Match-scoped participants
+//   servingParticipantId String?           @unique
+//   servingParticipant   MatchParticipant? @relation("ServingParticipant", fields: [servingParticipantId], references: [id], map: "fk_match_servingParticipant")
+
+//   winnerParticipantId String?           @unique
+//   winnerParticipant   MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId], references: [id], map: "fk_match_winnerParticipant")
+
+//   // Add this for bracket positioning
+//   bracketPosition Int? // Position within the round (0-based)
+
+//   participants MatchParticipant[]
+//   parts        MatchPart[]
+//   events       MatchEvent[]
+
+//   tournament Tournament? @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+//   createdAt         DateTime          @default(now())
+//   updatedAt         DateTime          @updatedAt
+//   Invitation        Invitation[]
+//   matchDependencies MatchDependency[]
+
+//   // Dependencies (add these relations)
+//   dependencies MatchDependency[] @relation("MatchDependencies")
+//   dependedOnBy MatchDependency[] @relation("MatchDependedOn")
+
+//   // Bracket node reference (optional)
+//   bracketNode BracketNode?
+// }
+
 model Match {
   id           String    @id @default(cuid())
   name         String?
@@ -400,20 +459,34 @@ model Match {
 
   // ✅ Match-scoped participants
   servingParticipantId String?           @unique
-  servingParticipant   MatchParticipant? @relation("ServingParticipant", fields: [servingParticipantId], references: [id], map: "fk_match_servingParticipant")
+  servingParticipant   MatchParticipant? @relation("ServingParticipant", fields: [servingParticipantId], references: [id])
 
   winnerParticipantId String?           @unique
-  winnerParticipant   MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId], references: [id], map: "fk_match_winnerParticipant")
+  winnerParticipant   MatchParticipant? @relation("MatchWinner", fields: [winnerParticipantId], references: [id])
 
+  // Bracket positioning
+  bracketPosition Int? // Position within the round (0-based)
+
+  // Relations
   participants MatchParticipant[]
   parts        MatchPart[]
   events       MatchEvent[]
+  tournament   Tournament?        @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  invitations  Invitation[]
 
-  tournament Tournament? @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  // Dependencies - ONE field is enough
+  // This represents matches that this match depends on (previous round matches)
+  dependsOn MatchDependency[] @relation("MatchDependsOn")
 
-  createdAt  DateTime     @default(now())
-  updatedAt  DateTime     @updatedAt
-  Invitation Invitation[]
+  // This represents matches that depend on this match (next round matches)
+  // This is derived from the other side of the same relation
+  dependedOnBy MatchDependency[] @relation("MatchDependedOnBy")
+
+  // Bracket node (one-to-one)
+  bracketNode BracketNode?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MatchParticipant {
@@ -424,7 +497,10 @@ model MatchParticipant {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  team     Int? // 1 or 2 for doubles
+  teamId String? // ✅ NEW
+  team   Team?   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  side     Int? // 1 or 2 for doubles
   position Int? // order in match
 
   // ✅ reverse relations
@@ -458,6 +534,65 @@ model MatchEvent {
   createdAt DateTime @default(now())
   match     Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
 }
+
+// Tracks which matches depend on which (for bracket progression)
+model MatchDependency {
+  id String @id @default(cuid())
+
+  // The match that depends on others (future round match)
+  matchId          String
+  // The match that must complete first (previous round match)
+  dependsOnMatchId String
+  // Which position in the current match gets filled (1 = first participant, 2 = second participant)
+  position         Int
+
+  // Relations - FIXED: Match the relation names from Match model
+  match     Match @relation("MatchDependsOn", fields: [matchId], references: [id], onDelete: Cascade)
+  dependsOn Match @relation("MatchDependedOnBy", fields: [dependsOnMatchId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([matchId, dependsOnMatchId])
+  @@index([matchId])
+  @@index([dependsOnMatchId])
+}
+
+// Store complete bracket structure for visualization
+model BracketNode {
+  id           String @id @default(cuid())
+  tournamentId String
+
+  // Position in bracket
+  round     Int
+  nodeIndex Int
+
+  // Which match this node corresponds to
+  matchId String? @unique
+
+  // For bye handling
+  isBye     Boolean @default(false)
+  byeTeamId String?
+
+  // Parent relation (where winner goes)
+  parentNodeId String?
+  parentNode   BracketNode? @relation("BracketNodeHierarchy", fields: [parentNodeId], references: [id])
+
+  // Children relation (matches that feed into this one)
+  childNodes BracketNode[] @relation("BracketNodeHierarchy")
+
+  // Relations
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  match      Match?     @relation(fields: [matchId], references: [id])
+  byeTeam    Team?      @relation(fields: [byeTeamId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@unique([tournamentId, round, nodeIndex])
+  @@index([tournamentId])
+  @@index([matchId])
+}
+
+// ===================== EXTRAS ===================== //
 
 model Asset {
   id String @id @default(cuid())

@@ -362,6 +362,7 @@ export const getMatchById = async (req, res) => {
             participants: {
                 include: {
                     user: true,
+                    team: true,
                 },
             },
             parts: true,      // ✅ include match parts
@@ -409,6 +410,134 @@ export const getMatchById = async (req, res) => {
         data: formattedMatch,
     });
 };
+
+// export const getMatchById = async (req, res) => {
+//     const { id, tournamentId } = req.params;
+
+//     const match = await prisma.match.findFirst({
+//         where: {
+//             id,
+//             ...(tournamentId ? { tournamentId } : {}),
+//         },
+//         include: {
+//             participants: {
+//                 include: {
+//                     user: true,
+//                 },
+//             },
+//             parts: true,
+//             location: true,
+//             tournament: {
+//                 include: {
+//                     rules: true,
+//                 },
+//             },
+//         },
+//     });
+
+//     if (!match) {
+//         return res.status(404).json({
+//             success: false,
+//             message: "MATCH_NOT_FOUND",
+//         });
+//     }
+
+//     // For doubles matches, get team details
+//     let teamMap = {};
+//     if (match.gameType === "DOUBLES") {
+//         // Get unique team IDs
+//         const teamIds = [...new Set(match.participants
+//             .filter(p => p.team !== null)
+//             .map(p => p.team))];
+
+//         // Fetch teams with members
+//         const teams = await prisma.team.findMany({
+//             where: {
+//                 id: { in: teamIds }
+//             },
+//             include: {
+//                 members: {
+//                     include: {
+//                         user: true,
+//                     },
+//                 },
+//             },
+//         });
+
+//         // Create lookup map
+//         teamMap = teams.reduce((acc, team) => {
+//             acc[team.id] = {
+//                 id: team.id,
+//                 name: team.name,
+//                 logo: team.logo,
+//                 city: team.city,
+//                 isTemporary: team.isTemporary,
+//                 members: team.members.map(m => ({
+//                     id: m.id,
+//                     user: {
+//                         id: m.user.id,
+//                         name: m.user.name,
+//                         username: m.user.username,
+//                     },
+//                     role: m.role,
+//                 })),
+//             };
+//             return acc;
+//         }, {});
+//     }
+
+//     // Format participants - simple and clean
+//     const formattedParticipants = match.participants.map((p) => {
+//         const participant = {
+//             id: p.id,
+//             user: {
+//                 id: p.user.id,
+//                 name: p.user.name,
+//                 username: p.user.username,
+//                 phone: p.user.phone,
+//             },
+//             teamNumber: p.team, // Renamed from 'team' to 'teamNumber' for clarity
+//             position: p.position,
+//         };
+
+//         // Add full team object for doubles matches
+//         if (match.gameType === "DOUBLES" && p.team && teamMap[p.team]) {
+//             participant.team = teamMap[p.team];
+//         }
+
+//         return participant;
+//     });
+
+//     // Format parts
+//     const formattedParts = match.parts.map((part) => ({
+//         id: part.id,
+//         partNumber: part.partNumber,
+//         p1Score: part.p1Score,
+//         p2Score: part.p2Score,
+//         winnerParticipantId: part.winnerParticipantId,
+//     }));
+
+//     const formattedMatch = {
+//         ...match,
+//         participants: formattedParticipants,
+//         parts: formattedParts,
+//         // Remove the old 'participants' from the spread if it causes duplication
+//         // The spread (...) already includes participants, but we're overriding it
+//     };
+
+//     // If you want to avoid potential duplication, do this instead:
+//     // const { participants: _, ...matchWithoutParticipants } = match;
+//     // const formattedMatch = {
+//     //     ...matchWithoutParticipants,
+//     //     participants: formattedParticipants,
+//     //     parts: formattedParts,
+//     // };
+
+//     res.json({
+//         success: true,
+//         data: formattedMatch,
+//     });
+// };
 
 
 

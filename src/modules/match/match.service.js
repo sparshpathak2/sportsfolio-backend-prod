@@ -537,51 +537,326 @@ export const createQuickMatch = async ({
 //     return match;
 // };
 
+// export const createBracketMatch = async (
+//     tx,
+//     {
+//         tournament,
+//         playerAId,
+//         playerBId,
+//         round,
+//     }
+// ) => {
+//     console.log("tournament at createBracketMatch:", tournament)
+//     if (!tournament.locations || tournament.locations.length === 0) {
+//         throw new Error("TOURNAMENT_LOCATION_NOT_SET");
+//     }
+
+//     const locationId = tournament.locations[0].id; // pick first for now
+
+//     const match = await tx.match.create({
+//         data: {
+//             sportCode: tournament.sportCode,
+//             gameType: tournament.rules.gameType,
+//             round,
+//             partsCount: tournament.rules.partsPerMatch,
+//             status: "SCHEDULED",
+
+//             // ✅ RELATION CONNECTS (THIS IS THE KEY)
+//             tournament: {
+//                 connect: { id: tournament.id },
+//             },
+
+//             location: {
+//                 connect: { id: locationId },
+//             },
+//         },
+//     });
+
+//     await tx.matchParticipant.createMany({
+//         data: [
+//             { matchId: match.id, userId: playerAId, position: 1 },
+//             { matchId: match.id, userId: playerBId, position: 2 },
+//         ],
+//     });
+
+//     return match;
+// };
+
+// Create a bracket match (for both singles and doubles)
+// export const createBracketMatch = async (
+//     tx,
+//     {
+//         tournament,
+//         playerAId = null,
+//         playerBId = null,
+//         teamAId = null,
+//         teamBId = null,
+//         round,
+//         bracketPosition,
+//         status = "PENDING" // Future rounds start as PENDING
+//     }
+// ) => {
+//     const isDoubles = tournament.rules.gameType === "DOUBLES";
+
+//     // Create the match
+//     const match = await tx.match.create({
+//         data: {
+//             tournamentId: tournament.id,
+//             sportCode: tournament.sportCode,
+//             gameType: isDoubles ? "DOUBLES" : "SINGLES",
+//             partsCount: tournament.rules.partsPerMatch,
+//             round,
+//             bracketPosition,
+//             status,
+//             locationId: tournament.locations[0]?.id,
+//         }
+//     });
+
+//     // If this is round 1 with actual participants, add them
+//     if (status === "SCHEDULED") {
+//         if (isDoubles) {
+//             // Add doubles participants
+//             if (teamAId) {
+//                 const teamAMembers = await tx.teamMember.findMany({
+//                     where: { teamId: teamAId }
+//                 });
+//                 for (let i = 0; i < teamAMembers.length; i++) {
+//                     await tx.matchParticipant.create({
+//                         data: {
+//                             matchId: match.id,
+//                             userId: teamAMembers[i].userId,
+//                             team: 1,
+//                             position: i + 1
+//                         }
+//                     });
+//                 }
+//             }
+
+//             if (teamBId) {
+//                 const teamBMembers = await tx.teamMember.findMany({
+//                     where: { teamId: teamBId }
+//                 });
+//                 for (let i = 0; i < teamBMembers.length; i++) {
+//                     await tx.matchParticipant.create({
+//                         data: {
+//                             matchId: match.id,
+//                             userId: teamBMembers[i].userId,
+//                             team: 2,
+//                             position: i + 3
+//                         }
+//                     });
+//                 }
+//             }
+//         } else {
+//             // Add singles participants
+//             if (playerAId) {
+//                 await tx.matchParticipant.create({
+//                     data: {
+//                         matchId: match.id,
+//                         userId: playerAId,
+//                         position: 1
+//                     }
+//                 });
+//             }
+//             if (playerBId) {
+//                 await tx.matchParticipant.create({
+//                     data: {
+//                         matchId: match.id,
+//                         userId: playerBId,
+//                         position: 2
+//                     }
+//                 });
+//             }
+//         }
+//     }
+
+//     return match;
+// };
+
 export const createBracketMatch = async (
     tx,
     {
         tournament,
-        playerAId,
-        playerBId,
+        playerAId = null,
+        playerBId = null,
+        teamAId = null,
+        teamBId = null,
+        round,
+        bracketPosition,
+        status = "PENDING"
+    }
+) => {
+    const isDoubles = tournament.rules.gameType === "DOUBLES";
+
+    // Create the match
+    const match = await tx.match.create({
+        data: {
+            tournamentId: tournament.id,
+            sportCode: tournament.sportCode,
+            gameType: isDoubles ? "DOUBLES" : "SINGLES",
+            partsCount: tournament.rules.partsPerMatch,
+            round,
+            bracketPosition,
+            status,
+            locationId: tournament.locations[0]?.id,
+        }
+    });
+
+    // If this is round 1 with actual participants, add them
+    if (status === "SCHEDULED") {
+        if (isDoubles) {
+            // Add doubles participants for Team A
+            if (teamAId) {
+                const teamAMembers = await tx.teamMember.findMany({
+                    where: { teamId: teamAId }
+                });
+
+                for (let i = 0; i < teamAMembers.length; i++) {
+                    await tx.matchParticipant.create({
+                        data: {
+                            matchId: match.id,
+                            userId: teamAMembers[i].userId,
+                            teamId: teamAId, // ✅ Store team ID
+                            side: 1, // ✅ Side 1
+                            position: i + 1
+                        }
+                    });
+                }
+            }
+
+            // Add doubles participants for Team B
+            if (teamBId) {
+                const teamBMembers = await tx.teamMember.findMany({
+                    where: { teamId: teamBId }
+                });
+
+                for (let i = 0; i < teamBMembers.length; i++) {
+                    await tx.matchParticipant.create({
+                        data: {
+                            matchId: match.id,
+                            userId: teamBMembers[i].userId,
+                            teamId: teamBId, // ✅ Store team ID
+                            side: 2, // ✅ Side 2
+                            position: i + 3
+                        }
+                    });
+                }
+            }
+        } else {
+            // Add singles participants
+            if (playerAId) {
+                await tx.matchParticipant.create({
+                    data: {
+                        matchId: match.id,
+                        userId: playerAId,
+                        position: 1
+                    }
+                });
+            }
+            if (playerBId) {
+                await tx.matchParticipant.create({
+                    data: {
+                        matchId: match.id,
+                        userId: playerBId,
+                        position: 2
+                    }
+                });
+            }
+        }
+    }
+
+    return match;
+};
+
+export const createDoublesBracketMatch = async (
+    tx,
+    {
+        tournament,
+        teamAId,
+        teamBId,
         round,
     }
 ) => {
-    console.log("tournament at createBracketMatch:", tournament)
+    console.log("tournament at createDoublesBracketMatch:", tournament);
+
     if (!tournament.locations || tournament.locations.length === 0) {
         throw new Error("TOURNAMENT_LOCATION_NOT_SET");
     }
 
     const locationId = tournament.locations[0].id; // pick first for now
 
+    // Create the match
     const match = await tx.match.create({
         data: {
             sportCode: tournament.sportCode,
-            gameType: tournament.rules.gameType,
+            gameType: "DOUBLES", // Explicitly set to DOUBLES
             round,
             partsCount: tournament.rules.partsPerMatch,
             status: "SCHEDULED",
 
-            // ✅ RELATION CONNECTS (THIS IS THE KEY)
+            // RELATION CONNECTS
             tournament: {
                 connect: { id: tournament.id },
             },
-
             location: {
                 connect: { id: locationId },
             },
         },
     });
 
+    // Get all team members for both teams
+    const teamAMembers = await tx.teamMember.findMany({
+        where: { teamId: teamAId },
+        select: { userId: true }
+    });
+
+    const teamBMembers = await tx.teamMember.findMany({
+        where: { teamId: teamBId },
+        select: { userId: true }
+    });
+
+    // Create match participants (4 players total - 2 per team)
+    // Position 1-2 for Team A, Position 3-4 for Team B
     await tx.matchParticipant.createMany({
         data: [
-            { matchId: match.id, userId: playerAId, position: 1 },
-            { matchId: match.id, userId: playerBId, position: 2 },
+            // Team A players (positions 1 and 2)
+            ...teamAMembers.map((member, index) => ({
+                matchId: match.id,
+                userId: member.userId,
+                team: 1, // Team 1
+                position: index + 1, // 1 or 2
+            })),
+            // Team B players (positions 3 and 4)
+            ...teamBMembers.map((member, index) => ({
+                matchId: match.id,
+                userId: member.userId,
+                team: 2, // Team 2
+                position: index + 3, // 3 or 4
+            })),
         ],
     });
 
     return match;
 };
 
+
+// Create dependencies between matches
+export const createMatchDependency = async (
+    tx,
+    {
+        futureMatchId,
+        previousMatchId,
+        position // 1 or 2 (which slot in future match gets filled)
+    }
+) => {
+    return tx.matchDependency.create({
+        data: {
+            matchId: futureMatchId,
+            dependsOnMatchId: previousMatchId,
+            position
+        }
+    });
+};
 
 
 
@@ -780,7 +1055,7 @@ export const listMatches = async ({
     if (scope === "my" && requesterId) {
         where.OR = [
             { participants: { some: { userId: requesterId } } },
-            { Invitation: { some: { playerId: requesterId, status: "ACCEPTED" } } },
+            { invitations: { some: { playerId: requesterId, status: "ACCEPTED" } } },
         ];
     }
 
@@ -798,7 +1073,7 @@ export const listMatches = async ({
                 tournament: true,
                 location: true,
                 parts: true,
-                Invitation: true,
+                invitations: true,
             },
         }),
         prisma.match.count({ where }),

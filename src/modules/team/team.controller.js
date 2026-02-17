@@ -1,4 +1,5 @@
 import * as teamService from "./team.service.js";
+import prisma from "../../lib/prisma.js"
 
 export const createTeam = async (req, res) => {
     try {

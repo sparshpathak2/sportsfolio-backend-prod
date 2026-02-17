@@ -1,4 +1,6 @@
 import { SportCode } from "@prisma/client";
+import prisma from "../../../../lib/prisma.js"
+import { shuffle } from "./shuffle.helpers.js";
 
 /**
  * Normalize doubles teams for matchmaking:

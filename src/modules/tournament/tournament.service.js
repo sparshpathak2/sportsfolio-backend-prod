@@ -3,6 +3,7 @@ import { uploadToS3 } from "../../lib/uploadToS3.js";
 import { generateCode } from "../../utils/generateCode.utils.js";
 import { runKnockoutMatchmaking } from "./matchMaking/index.js";
 import { generateNextRound } from "./roundProgression/index.js";
+import { triggerTournamentMatchmaking } from "../scheduler/scheduler.service.js";
 
 export const createTournament = async (data) => {
     /* =====================
@@ -80,6 +81,22 @@ export const createTournament = async (data) => {
     });
 
 
+    // ✅ AUTO-TRIGGER: Schedule matchmaking if tournament has matchMakingAt
+    if (tournament.matchMakingAt) {
+        const now = new Date();
+        const matchMakingTime = new Date(tournament.matchMakingAt);
+
+        if (matchMakingTime <= now) {
+            // If matchMakingAt is in the past, trigger immediately
+            console.log(`⚡ Tournament ${tournament.id} has past matchMakingAt, triggering now`);
+
+            // Don't await - let it run in background
+            triggerTournamentMatchmaking(tournament).catch(console.error);
+        } else {
+            // Future date - scheduler will pick it up
+            console.log(`📅 Tournament ${tournament.id} scheduled for matchmaking at ${tournament.matchMakingAt}`);
+        }
+    }
 
 
     return tournament;
@@ -519,6 +536,27 @@ export const updateTournament = async (id, data) => {
                 }),
             },
         });
+
+
+        // ✅ AUTO-TRIGGER: Handle matchmaking rescheduling
+        if (updated.status === "PUBLISHED" && updated.matchMakingAt) {
+            const now = new Date();
+            const matchMakingTime = new Date(updated.matchMakingAt);
+
+            // Check if no matches exist yet
+            const matchesExist = await prisma.match.findFirst({
+                where: { tournamentId: id }
+            });
+
+            if (!matchesExist) {
+                if (matchMakingTime <= now) {
+                    console.log(`⚡ Tournament ${updated.id} has past matchMakingAt after update, triggering now`);
+                    triggerTournamentMatchmaking(updated).catch(console.error);
+                } else {
+                    console.log(`📅 Tournament ${updated.id} rescheduled for matchmaking at ${updated.matchMakingAt}`);
+                }
+            }
+        }
 
         return updated;
     });

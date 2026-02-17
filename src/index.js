@@ -15,6 +15,7 @@ import sportRoutes from "./modules/sport/sport.routes.js";
 import assetRoutes from "./modules/asset/asset.routes.js";
 import requestRoutes from "./modules/request/request.routes.js";
 import invitationRoutes from "./modules/invitation/invitation.routes.js";
+import { initializeMatchmakingScheduler } from "./modules/scheduler/scheduler.service.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -128,6 +129,21 @@ app.use((err, req, res, next) => {
 /* ======================================================
    🚀 START SERVER
    ====================================================== */
-app.listen(PORT, "127.0.0.1", () => {
+// app.listen(PORT, "127.0.0.1", () => {
+//     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
+// });
+
+/* ======================================================
+   🚀 START SERVER WITH SCHEDULER
+   ====================================================== */
+const server = app.listen(PORT, "127.0.0.1", () => {
     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
+
+    // ✅ INITIALIZE MATCHMAKING SCHEDULER
+    try {
+        initializeMatchmakingScheduler();
+        console.log(`⏰ Matchmaking scheduler initialized and running`);
+    } catch (error) {
+        console.error(`❌ Failed to initialize matchmaking scheduler:`, error.message);
+    }
 });

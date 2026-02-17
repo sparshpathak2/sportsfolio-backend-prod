@@ -1,8 +1,62 @@
 import prisma from "../../lib/prisma.js";
-import { generateOtp, hashOtp } from "../../utils/otp.utils.js";
+import { generateOtp, hashOtp, otpExpiry } from "../../utils/otp.utils.js";
 import axios from "axios";
 import { FIREBASE_API_KEY, verifyIdToken } from "../../lib/firebase.js";
 // import { requestOtpService, verifyOtpService } from "./auth.service.js";
+
+// Request OTP for testing
+
+// export const requestOtp = async (req, res) => {
+//     const { phone } = req.body;
+
+//     if (!phone) {
+//         return res.status(400).json({ message: "Phone is required" });
+//     }
+
+//     // 1️⃣ Find or create user
+//     let user = await prisma.user.findUnique({
+//         where: { phone },
+//     });
+
+//     if (!user) {
+//         user = await prisma.user.create({
+//             data: { phone },
+//         });
+//     }
+
+//     try {
+//         // 🔹 Generate OTP
+//         const otp = generateOtp(); // 6 digit
+//         const hashedOtp = hashOtp(otp);
+//         const expiresAt = otpExpiry(5);
+
+//         // 🔹 Store hashed OTP
+//         await prisma.oTP.create({
+//             data: {
+//                 phone,
+//                 code: hashedOtp,
+//                 expiresAt,
+//                 verified: false,
+//             },
+//         });
+
+//         // 🚧 DEV ONLY – return OTP for testing
+//         return res.json({
+//             success: true,
+//             otp,               // ⚠️ ONLY FOR TESTING
+//             expiresIn: 300,
+//         });
+
+//     } catch (error) {
+//         console.error("OTP generation error:", error.message);
+//         return res.status(500).json({
+//             success: false,
+//             message: "Failed to generate OTP",
+//         });
+//     }
+// };
+
+// Firebase otp Request
 
 export const requestOtp = async (req, res) => {
     const { phone } = req.body
@@ -61,6 +115,10 @@ export const requestOtp = async (req, res) => {
     }
 }
 
+// OTP for Testing 
+
+// Verify OTP for testing
+
 // export const verifyOtp = async (req, res) => {
 //     try {
 //         const { phone, otp } = req.body;
@@ -72,7 +130,7 @@ export const requestOtp = async (req, res) => {
 //             });
 //         }
 
-//         // Find latest OTP for this phone that is not expired
+//         // 1️⃣ Find latest valid OTP
 //         const otpRecord = await prisma.oTP.findFirst({
 //             where: {
 //                 phone,
@@ -89,39 +147,65 @@ export const requestOtp = async (req, res) => {
 //             });
 //         }
 
-//         const isValid = otpRecord.code === otp; // compare directly
+//         // 2️⃣ Compare hashed OTP
+//         const hashedInputOtp = hashOtp(otp);
 
-//         if (!isValid) {
+//         if (hashedInputOtp !== otpRecord.code) {
 //             return res.status(400).json({
 //                 success: false,
-//                 message: "Invalid OTP",
+//                 message: "Incorrect OTP",
 //             });
 //         }
 
-//         // Mark OTP verified
-//         await prisma.oTP.update({
-//             where: { id: otpRecord.id },
+//         // 3️⃣ Fetch user
+//         const user = await prisma.user.findUnique({
+//             where: { phone },
+//         });
+
+//         if (!user) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "User not found",
+//             });
+//         }
+
+//         // 4️⃣ Create session (7 days)
+//         const session = await prisma.session.create({
+//             data: {
+//                 userId: user.id,
+//                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+//             },
+//         });
+
+//         // 5️⃣ Mark OTP verified
+//         await prisma.oTP.updateMany({
+//             where: { phone, verified: false },
 //             data: { verified: true },
 //         });
 
-//         // Optionally return user info
-//         const user = await prisma.user.findUnique({ where: { phone } });
+//         // 6️⃣ Set cookie (optional)
+//         res.cookie("sessionId", session.id, {
+//             httpOnly: true,
+//             sameSite: "lax",
+//             secure: false,
+//             maxAge: 7 * 24 * 60 * 60 * 1000,
+//         });
 
 //         return res.json({
 //             success: true,
-//             user: {
-//                 id: user.id,
-//                 phone: user.phone,
-//             },
+//             sessionId: session.id,
+//             user,
 //         });
+
 //     } catch (error) {
-//         console.error("Verify OTP error:", error);
+//         console.error("Verify OTP error:", error.message);
 //         return res.status(500).json({
 //             success: false,
 //             message: "OTP verification failed",
 //         });
 //     }
 // };
+
 
 // export const verifyOtp = async (req, res) => {
 //     try {
@@ -216,6 +300,8 @@ export const requestOtp = async (req, res) => {
 //         });
 //     }
 // };
+
+// Firebase OTP 
 
 export const verifyOtp = async (req, res) => {
     try {
