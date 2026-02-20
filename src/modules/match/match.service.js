@@ -114,77 +114,77 @@ export const startMatch = async (matchId) => {
 // };
 
 
-export const recordEvent = async ({ matchId, type, payload }) => {
-    const match = await prisma.match.findUnique({
-        where: { id: matchId },
-        include: {
-            parts: true,
-            participants: true,
-        },
-    });
+// export const recordEvent = async ({ matchId, type, payload }) => {
+//     const match = await prisma.match.findUnique({
+//         where: { id: matchId },
+//         include: {
+//             parts: true,
+//             participants: true,
+//         },
+//     });
 
-    if (!match) throw new Error("MATCH_NOT_FOUND");
-    if (match.status !== "LIVE") throw new Error("MATCH_NOT_LIVE");
+//     if (!match) throw new Error("MATCH_NOT_FOUND");
+//     if (match.status !== "LIVE") throw new Error("MATCH_NOT_LIVE");
 
-    const { scoringParticipantId } = payload;
-    if (!scoringParticipantId) {
-        throw new Error("scoringParticipantId is required");
-    }
+//     const { scoringParticipantId } = payload;
+//     if (!scoringParticipantId) {
+//         throw new Error("scoringParticipantId is required");
+//     }
 
-    const participant = match.participants.find(
-        p => p.id === scoringParticipantId
-    );
+//     const participant = match.participants.find(
+//         p => p.id === scoringParticipantId
+//     );
 
-    if (!participant) {
-        throw new Error("PARTICIPANT_NOT_IN_MATCH");
-    }
+//     if (!participant) {
+//         throw new Error("PARTICIPANT_NOT_IN_MATCH");
+//     }
 
-    /* 1️⃣ APPLY SCORING */
-    const scoringEngine = EngineFactory.getScoringEngine(match.sportCode);
+//     /* 1️⃣ APPLY SCORING */
+//     const scoringEngine = EngineFactory.getScoringEngine(match.sportCode);
 
-    const scoringState = scoringEngine.applyEvent({
-        match,
-        eventType: type,
-        payload: {
-            participantId: scoringParticipantId,
-            position: participant.position,
-        },
-    });
+//     const scoringState = scoringEngine.applyEvent({
+//         match,
+//         eventType: type,
+//         payload: {
+//             participantId: scoringParticipantId,
+//             position: participant.position,
+//         },
+//     });
 
-    await prisma.matchEvent.create({
-        data: { matchId, type, payload },
-    });
+//     await prisma.matchEvent.create({
+//         data: { matchId, type, payload },
+//     });
 
-    await scoringEngine.persist(prisma, scoringState);
+//     await scoringEngine.persist(prisma, scoringState);
 
-    /* 2️⃣ CHECK MATCH PROGRESSION */
-    const updatedMatch = await prisma.match.findUnique({
-        where: { id: matchId },
-        include: { parts: true },
-    });
+//     /* 2️⃣ CHECK MATCH PROGRESSION */
+//     const updatedMatch = await prisma.match.findUnique({
+//         where: { id: matchId },
+//         include: { parts: true },
+//     });
 
-    const progressionEngine =
-        MatchProgressionFactory.getEngine(match.sportCode);
+//     const progressionEngine =
+//         MatchProgressionFactory.getEngine(match.sportCode);
 
-    const progression = progressionEngine.advance(updatedMatch);
+//     const progression = progressionEngine.advance(updatedMatch);
 
-    /* 3️⃣ COMPLETE MATCH IF NEEDED */
-    if (progression.matchCompleted) {
-        await prisma.match.update({
-            where: { id: matchId },
-            data: {
-                status: "COMPLETED",
-                winnerParticipantId: progression.winnerParticipantId,
-                completedAt: new Date(),
-            },
-        });
-    }
+//     /* 3️⃣ COMPLETE MATCH IF NEEDED */
+//     if (progression.matchCompleted) {
+//         await prisma.match.update({
+//             where: { id: matchId },
+//             data: {
+//                 status: "COMPLETED",
+//                 winnerParticipantId: progression.winnerParticipantId,
+//                 completedAt: new Date(),
+//             },
+//         });
+//     }
 
-    return {
-        scoringState,
-        matchCompleted: progression.matchCompleted,
-    };
-};
+//     return {
+//         scoringState,
+//         matchCompleted: progression.matchCompleted,
+//     };
+// };
 
 // export const undoLastScore = async ({ matchId }) => {
 //     // 1️⃣ Fetch the last scoring event
@@ -352,6 +352,300 @@ export const recordEvent = async ({ matchId, type, payload }) => {
 //     });
 // };
 
+
+export const recordEvent = async ({ matchId, type, payload }) => {
+    const match = await prisma.match.findUnique({
+        where: { id: matchId },
+        include: {
+            parts: true,
+            participants: true,
+        },
+    });
+
+    if (!match) throw new Error("MATCH_NOT_FOUND");
+    if (match.status !== "LIVE") throw new Error("MATCH_NOT_LIVE");
+
+    const { scoringParticipantId } = payload;
+    if (!scoringParticipantId) {
+        throw new Error("scoringParticipantId is required");
+    }
+
+    const participant = match.participants.find(
+        p => p.id === scoringParticipantId
+    );
+
+    if (!participant) {
+        throw new Error("PARTICIPANT_NOT_IN_MATCH");
+    }
+
+    /* 1️⃣ APPLY SCORING */
+    const scoringEngine = EngineFactory.getScoringEngine(match.sportCode);
+
+    const scoringState = scoringEngine.applyEvent({
+        match,
+        eventType: type,
+        payload: {
+            participantId: scoringParticipantId,
+            position: participant.position,
+        },
+    });
+
+    // Create event record
+    await prisma.matchEvent.create({
+        data: {
+            matchId,
+            type,
+            payload: {
+                ...payload,
+                timestamp: new Date().toISOString()
+            }
+        },
+    });
+
+    // Persist scoring changes
+    await scoringEngine.persist(prisma, scoringState);
+
+    /* 2️⃣ CHECK MATCH PROGRESSION */
+    const updatedMatch = await prisma.match.findUnique({
+        where: { id: matchId },
+        include: {
+            parts: true,
+            participants: {
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            username: true,
+                            profileImage: true
+                        }
+                    },
+                    team: {
+                        include: {
+                            members: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            username: true,
+                                            profileImage: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+    });
+
+    const progressionEngine = MatchProgressionFactory.getEngine(match.sportCode);
+    const progression = progressionEngine.advance(updatedMatch);
+
+    /* 3️⃣ COMPLETE MATCH IF NEEDED */
+    let matchCompleted = false;
+    let winnerInfo = null;
+
+    if (progression.matchCompleted) {
+        // Get winner details before updating
+        const winnerParticipant = updatedMatch.participants.find(
+            p => p.id === progression.winnerParticipantId
+        );
+
+        winnerInfo = {
+            participantId: progression.winnerParticipantId,
+            userId: winnerParticipant?.userId,
+            teamId: winnerParticipant?.teamId,
+            name: winnerParticipant?.team?.name || winnerParticipant?.user?.name
+        };
+
+        await prisma.match.update({
+            where: { id: matchId },
+            data: {
+                status: "COMPLETED",
+                winnerParticipantId: progression.winnerParticipantId,
+                completedAt: new Date(),
+            },
+        });
+
+        matchCompleted = true;
+    }
+
+    /* 4️⃣ GET COMPLETE MATCH STATE FOR BROADCAST */
+    const matchState = await getMatchState(matchId);
+
+    return {
+        scoringState,
+        matchCompleted,
+        winnerInfo,
+        matchState,
+        progression
+    };
+};
+
+/**
+ * Get comprehensive match state with all details for broadcasting
+ */
+export const getMatchState = async (matchId) => {
+    const match = await prisma.match.findUnique({
+        where: { id: matchId },
+        include: {
+            participants: {
+                include: {
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            username: true,
+                            profileImage: true
+                        }
+                    },
+                    team: {
+                        include: {
+                            members: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            username: true,
+                                            profileImage: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                orderBy: [
+                    { side: 'asc' },
+                    { position: 'asc' }
+                ]
+            },
+            parts: {
+                orderBy: { partNumber: 'asc' }
+            },
+            tournament: {
+                select: {
+                    id: true,
+                    name: true,
+                    sportCode: true,
+                    tournamentType: true,
+                    rules: true
+                }
+            },
+            location: true,
+            events: {
+                orderBy: { createdAt: 'desc' },
+                take: 50 // Last 50 events
+            }
+        }
+    });
+
+    if (!match) return null;
+
+    // Format the response for easier consumption
+    const formattedMatch = {
+        ...match,
+        currentPart: match.parts.find(p => !p.winnerParticipantId) || match.parts[match.parts.length - 1],
+        completedParts: match.parts.filter(p => p.winnerParticipantId),
+        score: {
+            team1: match.parts.reduce((total, part) => ({
+                points: total.points + (part.p1Score || 0),
+                parts: total.parts + (part.winnerParticipantId &&
+                    match.participants.find(p => p.id === part.winnerParticipantId)?.side === 1 ? 1 : 0)
+            }), { points: 0, parts: 0 }),
+            team2: match.parts.reduce((total, part) => ({
+                points: total.points + (part.p2Score || 0),
+                parts: total.parts + (part.winnerParticipantId &&
+                    match.participants.find(p => p.id === part.winnerParticipantId)?.side === 2 ? 1 : 0)
+            }), { points: 0, parts: 0 })
+        },
+        participants: match.participants.map(p => ({
+            id: p.id,
+            userId: p.userId,
+            userName: p.user?.name,
+            side: p.side,
+            position: p.position,
+            team: p.team ? {
+                id: p.team.id,
+                name: p.team.name,
+                logo: p.team.logo,
+                members: p.team.members.map(m => ({
+                    id: m.id,
+                    userId: m.userId,
+                    name: m.user?.name,
+                    role: m.role
+                }))
+            } : null
+        }))
+    };
+
+    return formattedMatch;
+};
+
+/**
+ * Get match summary (lighter version for lists)
+ */
+export const getMatchSummary = async (matchId) => {
+    const match = await prisma.match.findUnique({
+        where: { id: matchId },
+        select: {
+            id: true,
+            sportCode: true,
+            gameType: true,
+            status: true,
+            round: true,
+            partsCount: true,
+            startTime: true,
+            completedAt: true,
+            winnerParticipantId: true,
+            participants: {
+                select: {
+                    id: true,
+                    userId: true,
+                    teamId: true,
+                    side: true,
+                    position: true,
+                    user: {
+                        select: {
+                            id: true,
+                            name: true,
+                            profileImage: true
+                        }
+                    },
+                    team: {
+                        select: {
+                            id: true,
+                            name: true,
+                            logo: true
+                        }
+                    }
+                }
+            },
+            parts: {
+                select: {
+                    partNumber: true,
+                    p1Score: true,
+                    p2Score: true,
+                    winnerParticipantId: true
+                },
+                orderBy: { partNumber: 'asc' }
+            },
+            tournament: {
+                select: {
+                    id: true,
+                    name: true
+                }
+            }
+        }
+    });
+
+    return match;
+};
+
 export const createQuickMatch = async ({
     name,
     sportCode,
@@ -465,7 +759,6 @@ export const createQuickMatch = async ({
         return match;
     });
 };
-
 
 
 // export const createBracketMatch = async ({

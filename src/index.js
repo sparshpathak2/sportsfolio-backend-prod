@@ -16,9 +16,35 @@ import assetRoutes from "./modules/asset/asset.routes.js";
 import requestRoutes from "./modules/request/request.routes.js";
 import invitationRoutes from "./modules/invitation/invitation.routes.js";
 import { initializeMatchmakingScheduler } from "./modules/scheduler/scheduler.service.js";
+import { createServer } from "http";
+import { Server } from "socket.io";
+import { initializeSocket } from "./socket/index.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+/* ======================================================
+   1️⃣ CREATE HTTP SERVER (for Socket.IO)
+   ====================================================== */
+const server = createServer(app);
+
+/* ======================================================
+   2️⃣ INITIALIZE SOCKET.IO
+   ====================================================== */
+const io = new Server(server, {
+    cors: {
+        origin: true,
+        credentials: true,
+        methods: ["GET", "POST"]
+    }
+});
+
+
+// Make io available throughout the app
+app.set('io', io);
+
+// Initialize socket handlers
+initializeSocket(io);
 
 /* ======================================================
    1️⃣ TRUST PROXY (if behind LB later)
@@ -136,8 +162,24 @@ app.use((err, req, res, next) => {
 /* ======================================================
    🚀 START SERVER WITH SCHEDULER
    ====================================================== */
-const server = app.listen(PORT, "127.0.0.1", () => {
+// const server = app.listen(PORT, "127.0.0.1", () => {
+//     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
+
+//     // ✅ INITIALIZE MATCHMAKING SCHEDULER
+//     try {
+//         initializeMatchmakingScheduler();
+//         console.log(`⏰ Matchmaking scheduler initialized and running`);
+//     } catch (error) {
+//         console.error(`❌ Failed to initialize matchmaking scheduler:`, error.message);
+//     }
+// });
+
+/* ======================================================
+   🚀 START SERVER WITH SOCKET.IO
+   ====================================================== */
+server.listen(PORT, "127.0.0.1", () => {
     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
+    console.log(`🔌 Socket.IO server running on ws://127.0.0.1:${PORT}`);
 
     // ✅ INITIALIZE MATCHMAKING SCHEDULER
     try {
