@@ -513,6 +513,7 @@ export const updateTournament = async (id, data) => {
                 logo: data.logo ?? undefined,
                 banner: data.banner ?? undefined,
                 city: data.city ?? undefined,
+                matchMakingAt: data.matchMakingAt ? new Date(data.matchMakingAt) : undefined,
 
                 ...(locations.length && {
                     locations: {
