@@ -1,23 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import { EngineFactory, MatchProgressionFactory } from "../../domains/EngineFactory.js";
 
-// export const startMatch = async (matchId) => {
-//     const match = await prisma.match.findUnique({
-//         where: { id: matchId },
-//         include: {
-//             tournament: { include: { rules: true } },
-//             participants: true,
-//         },
-//     });
-
-//     if (!match) throw new Error("Match not found");
-
-//     return prisma.match.update({
-//         where: { id: matchId },
-//         data: { status: "LIVE", startTime: new Date() },
-//     });
-// };
-
 export const startMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
         where: { id: matchId },
@@ -63,320 +46,71 @@ export const startMatch = async (matchId) => {
 };
 
 
-// export const recordEvent = async ({ matchId, type, payload }) => {
-//     const match = await prisma.match.findUnique({
-//         where: { id: matchId },
-//         include: {
-//             parts: true,
-//             participants: true, // MatchParticipant[]
-//         },
-//     });
-
-//     if (!match) throw new Error("Match not found");
-//     if (match.status !== "LIVE") throw new Error("Match is not live");
-
-//     const { scoringParticipantId } = payload;
-//     if (!scoringParticipantId) {
-//         throw new Error("scoringParticipantId is required");
-//     }
-
-//     // 🔥 FIND POSITION
-//     const participant = match.participants.find(
-//         p => p.participantId === scoringParticipantId
-//     );
-
-//     if (!participant) {
-//         throw new Error("Participant not part of this match");
-//     }
-
-//     const engine = EngineFactory.getScoringEngine(match.sportCode);
-
-//     const updatedState = engine.applyEvent({
-//         match,
-//         eventType: type,
-//         payload: {
-//             participantId: scoringParticipantId,
-//             position: participant.position, // ✅ derived
-//         },
-//     });
-
-//     await prisma.matchEvent.create({
-//         data: {
-//             matchId,
-//             type,
-//             payload,
-//         },
-//     });
-
-//     await engine.persist(prisma, updatedState);
-
-//     return updatedState;
-// };
-
-
-// export const recordEvent = async ({ matchId, type, payload }) => {
-//     const match = await prisma.match.findUnique({
-//         where: { id: matchId },
-//         include: {
-//             parts: true,
-//             participants: true,
-//         },
-//     });
-
-//     if (!match) throw new Error("MATCH_NOT_FOUND");
-//     if (match.status !== "LIVE") throw new Error("MATCH_NOT_LIVE");
-
-//     const { scoringParticipantId } = payload;
-//     if (!scoringParticipantId) {
-//         throw new Error("scoringParticipantId is required");
-//     }
-
-//     const participant = match.participants.find(
-//         p => p.id === scoringParticipantId
-//     );
-
-//     if (!participant) {
-//         throw new Error("PARTICIPANT_NOT_IN_MATCH");
-//     }
-
-//     /* 1️⃣ APPLY SCORING */
-//     const scoringEngine = EngineFactory.getScoringEngine(match.sportCode);
-
-//     const scoringState = scoringEngine.applyEvent({
-//         match,
-//         eventType: type,
-//         payload: {
-//             participantId: scoringParticipantId,
-//             position: participant.position,
-//         },
-//     });
-
-//     await prisma.matchEvent.create({
-//         data: { matchId, type, payload },
-//     });
-
-//     await scoringEngine.persist(prisma, scoringState);
-
-//     /* 2️⃣ CHECK MATCH PROGRESSION */
-//     const updatedMatch = await prisma.match.findUnique({
-//         where: { id: matchId },
-//         include: { parts: true },
-//     });
-
-//     const progressionEngine =
-//         MatchProgressionFactory.getEngine(match.sportCode);
-
-//     const progression = progressionEngine.advance(updatedMatch);
-
-//     /* 3️⃣ COMPLETE MATCH IF NEEDED */
-//     if (progression.matchCompleted) {
-//         await prisma.match.update({
-//             where: { id: matchId },
-//             data: {
-//                 status: "COMPLETED",
-//                 winnerParticipantId: progression.winnerParticipantId,
-//                 completedAt: new Date(),
-//             },
-//         });
-//     }
-
-//     return {
-//         scoringState,
-//         matchCompleted: progression.matchCompleted,
-//     };
-// };
-
-// export const undoLastScore = async ({ matchId }) => {
-//     // 1️⃣ Fetch the last scoring event
-//     const lastEvent = await prisma.matchEvent.findFirst({
-//         where: { matchId, type: "SCORE" },
-//         orderBy: { createdAt: "desc" },
-//     });
-
-//     if (!lastEvent) throw new Error("NO_SCORE_TO_UNDO");
-
-//     // 2️⃣ Fetch the match with parts
-//     const match = await prisma.match.findUnique({
-//         where: { id: matchId },
-//         include: { parts: true, participants: true },
-//     });
-
-//     if (!match) throw new Error("MATCH_NOT_FOUND");
-
-//     // 3️⃣ Identify current active part (the one that received the last score)
-//     const currentPart = match.parts.find(
-//         p => !p.winnerParticipantId
-//     ) || match.parts[match.parts.length - 1]; // fallback last part if winner exists
-
-//     const { participantId, position } = lastEvent.payload;
-
-//     // 4️⃣ Reverse the score
-//     if (position === 1 && currentPart.p1Score > 0) currentPart.p1Score--;
-//     if (position === 2 && currentPart.p2Score > 0) currentPart.p2Score--;
-
-//     // 5️⃣ Reset winner if it was set by this score
-//     if (currentPart.winnerParticipantId === participantId) {
-//         currentPart.winnerParticipantId = null;
-//     }
-
-//     // 6️⃣ Persist the updated part
-//     await prisma.matchPart.update({
-//         where: { id: currentPart.id },
-//         data: {
-//             p1Score: currentPart.p1Score,
-//             p2Score: currentPart.p2Score,
-//             winnerParticipantId: currentPart.winnerParticipantId,
-//         },
-//     });
-
-//     // 7️⃣ Remove the last event
-//     await prisma.matchEvent.delete({ where: { id: lastEvent.id } });
-
-//     // Optional: recalc match winner if match was completed
-//     if (match.status === "COMPLETED") {
-//         await prisma.match.update({
-//             where: { id: matchId },
-//             data: { status: "LIVE", winnerParticipantId: null, completedAt: null },
-//         });
-//     }
-
-//     return {
-//         partId: currentPart.id,
-//         p1Score: currentPart.p1Score,
-//         p2Score: currentPart.p2Score,
-//         winnerParticipantId: currentPart.winnerParticipantId,
-//     };
-// };
-
-
-
-// export const createMatch = async ({
-//     tournamentId,
-//     sportCode,
-//     locationId,
-//     playArea,
-//     gameType,
-//     partsCount,
-//     startTime,
-//     officialUserPhone,
-//     participantIds,           // array of User IDs
-//     servingParticipantId, // optional, User ID
-// }) => {
-//     if (!locationId) throw new Error("LOCATION_REQUIRED");
-//     if (playArea === undefined || playArea === null) throw new Error("PLAY_AREA_REQUIRED");
-//     if (!officialUserPhone) throw new Error("OFFICIAL_PHONE_REQUIRED");
-
-//     /* Validate game type */
-//     if (gameType === "SINGLES" && participantIds.length !== 2) {
-//         throw new Error("SINGLES_MATCH_REQUIRES_2_PARTICIPANTS");
-//     }
-
-//     if (gameType === "DOUBLES" && participantIds.length !== 4) {
-//         throw new Error("DOUBLES_MATCH_REQUIRES_4_PARTICIPANTS");
-//     }
-
-//     if (
-//         servingParticipantId &&
-//         !participantIds.includes(servingParticipantId)
-//     ) {
-//         throw new Error("INVALID_SERVING_PARTICIPANT");
-//     }
-
-//     return prisma.$transaction(async (tx) => {
-//         // 1️⃣ Handle official user
-//         let officialUser = await tx.user.findUnique({
-//             where: { phone: officialUserPhone },
-//         });
-//         if (!officialUser) {
-//             officialUser = await tx.user.create({ data: { phone: officialUserPhone } });
-//         }
-
-//         // 2️⃣ Optional: Tournament validation
-//         if (tournamentId) {
-//             const rules = await tx.tournamentRules.findUnique({ where: { tournamentId } });
-//             if (!rules) throw new Error("TOURNAMENT_RULES_NOT_FOUND");
-//             if (rules.gameType !== gameType) throw new Error("GAME_TYPE_MISMATCH_WITH_TOURNAMENT");
-//             if (!partsCount) partsCount = rules.partsPerMatch;
-//         }
-
-//         if (!partsCount) throw new Error("PARTS_COUNT_REQUIRED");
-
-//         // 3️⃣ Create match
-//         const match = await tx.match.create({
-//             data: {
-//                 tournamentId: tournamentId ?? null,
-//                 sportCode,
-//                 locationId,
-//                 playArea,
-//                 gameType,
-//                 partsCount,
-//                 startTime,
-//                 status: startTime ? "SCHEDULED" : "LIVE",
-//                 officialUserId: officialUser.id,
-//             },
-//         });
-
-//         // 4️⃣ Create match participants
-//         const participantsData = participantIds.map((userId, index) => ({
-//             matchId: match.id,
-//             userId,
-//             position: index + 1,
-//             team: gameType === "DOUBLES" ? (index < 2 ? 1 : 2) : null,
-//         }));
-
-//         const createdParticipants = await tx.matchParticipant.createMany({
-//             data: participantsData,
-//         });
-
-//         // 5️⃣ Set servingParticipantId if provided
-//         if (servingParticipantId) {
-//             const serving = await tx.matchParticipant.findFirst({
-//                 where: { matchId: match.id, userId: servingParticipantId },
-//             });
-//             if (!serving) throw new Error("SERVING_PARTICIPANT_NOT_FOUND");
-//             await tx.match.update({
-//                 where: { id: match.id },
-//                 data: { servingParticipantId: serving.id },
-//             });
-//         }
-
-//         // 6️⃣ Create match parts
-//         await tx.matchPart.createMany({
-//             data: Array.from({ length: partsCount }).map((_, index) => ({
-//                 matchId: match.id,
-//                 partNumber: index + 1,
-//             })),
-//         });
-
-//         return match;
-//     });
-// };
-
-
 export const recordEvent = async ({ matchId, type, payload }) => {
     const match = await prisma.match.findUnique({
         where: { id: matchId },
         include: {
             parts: true,
-            participants: true,
+            participants: {
+                include: {
+                    user: true,
+                    team: {
+                        include: {
+                            members: {
+                                include: { user: true }
+                            }
+                        }
+                    }
+                }
+            },
         },
     });
 
     if (!match) throw new Error("MATCH_NOT_FOUND");
     if (match.status !== "LIVE") throw new Error("MATCH_NOT_LIVE");
 
-    const { scoringParticipantId } = payload;
-    if (!scoringParticipantId) {
-        throw new Error("scoringParticipantId is required");
-    }
+    // Extract common fields + sport-specific data from payload
+    const { scoringParticipantId, userId, ...sportSpecificData } = payload;
 
-    const participant = match.participants.find(
-        p => p.id === scoringParticipantId
-    );
+    console.log("\n========== SCORE EVENT DEBUG ==========");
+    console.log("📥 Match type:", match.gameType);
+    console.log("📥 Common data:", { scoringParticipantId, userId });
+    console.log("📥 Sport-specific data:", sportSpecificData);
+
+    // Find participant by either ID
+    let participant;
+    if (scoringParticipantId) {
+        participant = match.participants.find(p => p.id === scoringParticipantId);
+    } else if (userId) {
+        participant = match.participants.find(p => p.userId === userId);
+    }
 
     if (!participant) {
+        console.error("❌ Participant not found!");
         throw new Error("PARTICIPANT_NOT_IN_MATCH");
     }
+
+    // For team sports, log team context
+    const isTeamSport = match.gameType === "DOUBLES"; // Will expand for cricket/football
+    if (isTeamSport && participant.teamId) {
+        const teamMembers = match.participants.filter(p => p.teamId === participant.teamId);
+        console.log("👥 Team context:", {
+            teamId: participant.teamId,
+            side: participant.side,
+            members: teamMembers.map(m => ({
+                userId: m.userId,
+                position: m.position
+            }))
+        });
+    }
+
+    // Log current part before scoring
+    const currentPart = match.parts.find(p => !p.winnerParticipantId);
+    console.log("📊 Current part before scoring:", {
+        partNumber: currentPart?.partNumber,
+        p1Score: currentPart?.p1Score,
+        p2Score: currentPart?.p2Score
+    });
 
     /* 1️⃣ APPLY SCORING */
     const scoringEngine = EngineFactory.getScoringEngine(match.sportCode);
@@ -385,20 +119,45 @@ export const recordEvent = async ({ matchId, type, payload }) => {
         match,
         eventType: type,
         payload: {
-            participantId: scoringParticipantId,
+            participantId: participant.id,
             position: participant.position,
+            side: participant.side,
+            userId: participant.userId,
+            teamId: participant.teamId,
         },
     });
 
-    // Create event record
+    // Create enhanced event record with sport-specific JSON payload
+    const eventPayload = {
+        // Common fields for all sports
+        participantId: participant.id,
+        userId: participant.userId,
+        teamId: participant.teamId,
+        side: participant.side,
+        position: participant.position,
+        partNumber: scoringState.currentPart.partNumber,
+        timestamp: new Date().toISOString(),
+
+        // Sport-specific data (pass through untouched)
+        ...sportSpecificData,
+    };
+
+    // Add team context for team sports
+    if (isTeamSport && participant.teamId) {
+        eventPayload.teamContext = {
+            teamId: participant.teamId,
+            side: participant.side,
+            teammateIds: match.participants
+                .filter(p => p.teamId === participant.teamId && p.id !== participant.id)
+                .map(p => p.userId)
+        };
+    }
+
     await prisma.matchEvent.create({
         data: {
             matchId,
             type,
-            payload: {
-                ...payload,
-                timestamp: new Date().toISOString()
-            }
+            payload: eventPayload
         },
     });
 
@@ -454,23 +213,66 @@ export const recordEvent = async ({ matchId, type, payload }) => {
             p => p.id === progression.winnerParticipantId
         );
 
+        // 🔥 OPTIMIZED: For team sports, winnerUserId is not needed
+        const isTeamSport = match.gameType === "DOUBLES";
+
         winnerInfo = {
             participantId: progression.winnerParticipantId,
-            userId: winnerParticipant?.userId,
-            teamId: winnerParticipant?.teamId,
-            name: winnerParticipant?.team?.name || winnerParticipant?.user?.name
+            ...(isTeamSport ? {
+                teamId: winnerParticipant?.teamId,
+                name: winnerParticipant?.team?.name
+            } : {
+                userId: winnerParticipant?.userId,
+                name: winnerParticipant?.user?.name
+            }),
+            side: winnerParticipant?.side
         };
+
+        // Log team win for team sports
+        if (isTeamSport && winnerParticipant?.teamId) {
+            const teamMembers = updatedMatch.participants.filter(p => p.teamId === winnerParticipant.teamId);
+            winnerInfo.teamMembers = teamMembers.map(m => ({
+                userId: m.userId,
+                name: m.user?.name
+            }));
+        }
+
+        // 🔥 OPTIMIZED: Update match with appropriate fields
+        const updateData = {
+            status: "COMPLETED",
+            completedAt: new Date(),
+            winnerParticipantId: progression.winnerParticipantId,
+        };
+
+        if (isTeamSport) {
+            updateData.winnerTeamId = winnerParticipant?.teamId;
+            updateData.winnerUserId = null; // Explicitly null for team sports
+        } else {
+            updateData.winnerUserId = winnerParticipant?.userId;
+            updateData.winnerTeamId = null; // Explicitly null for singles
+        }
 
         await prisma.match.update({
             where: { id: matchId },
-            data: {
-                status: "COMPLETED",
-                winnerParticipantId: progression.winnerParticipantId,
-                completedAt: new Date(),
-            },
+            data: updateData,
         });
 
         matchCompleted = true;
+
+        // Advance winner to next match - pass null for winnerUserId in team sports
+        console.log(`🔄 Attempting to advance winner to next match...`);
+        try {
+            const advancement = await advanceWinnerToNextMatch(
+                matchId,
+                progression.winnerParticipantId,
+                isTeamSport ? null : winnerParticipant?.userId,  // ✅ Only pass userId for singles
+                winnerParticipant?.teamId
+            );
+            console.log(`✅ Winner advancement result:`, advancement);
+            winnerInfo.advancement = advancement;
+        } catch (advanceError) {
+            console.error(`❌ Failed to advance winner:`, advanceError);
+        }
     }
 
     /* 4️⃣ GET COMPLETE MATCH STATE FOR BROADCAST */
@@ -484,6 +286,571 @@ export const recordEvent = async ({ matchId, type, payload }) => {
         progression
     };
 };
+
+
+export const undoLastScore = async ({ matchId, requestedByUserId }) => {
+    return await prisma.$transaction(async (tx) => {
+        // 1. Get match with current state - INCLUDING participants!
+        const match = await tx.match.findUnique({
+            where: { id: matchId },
+            include: {
+                parts: {
+                    orderBy: { partNumber: 'asc' }
+                },
+                participants: true,
+                events: {
+                    where: { type: "SCORE" },
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        });
+
+        if (!match) throw new Error("MATCH_NOT_FOUND");
+
+        console.log("\n========== UNDO DEBUG ==========");
+        console.log("Match status:", match.status);
+        console.log("Match gameType:", match.gameType);
+        console.log("All parts:", match.parts.map(p => ({
+            partNumber: p.partNumber,
+            p1Score: p.p1Score,
+            p2Score: p.p2Score,
+            winner: p.winnerParticipantId
+        })));
+        console.log("Participants:", match.participants.map(p => ({
+            id: p.id,
+            userId: p.userId,
+            teamId: p.teamId,
+            side: p.side,
+            position: p.position
+        })));
+
+        const lastScoreEvent = match.events[0];
+        if (!lastScoreEvent) throw new Error("NO_SCORE_TO_UNDO");
+
+        console.log("Last score event:", {
+            id: lastScoreEvent.id,
+            payload: lastScoreEvent.payload
+        });
+
+        // 🔥 FIX: Get userId and side from the event payload
+        const { userId, side } = lastScoreEvent.payload;
+
+        if (!userId) throw new Error("No userId in score event");
+
+        // Find participant to verify
+        const participant = match.participants.find(p => p.userId === userId);
+        if (!participant) throw new Error("Participant not found");
+
+        // 🔥 FIX: Use side from event, not participant.position
+        const teamSide = side || participant.side; // Fallback to participant.side if side not in event
+
+        console.log(`🎯 Undo for user ${userId} on side ${teamSide}`);
+
+        // Find the part that has scores for this team's side
+        const sortedParts = [...match.parts].sort((a, b) => b.partNumber - a.partNumber);
+
+        let targetPart = null;
+        for (const part of sortedParts) {
+            if (teamSide === 1 && part.p1Score > 0) {
+                targetPart = part;
+                break;
+            } else if (teamSide === 2 && part.p2Score > 0) {
+                targetPart = part;
+                break;
+            }
+        }
+
+        if (!targetPart) {
+            // If no part has scores, check parts with winners
+            for (const part of sortedParts) {
+                // For team sports, check if winner is from this team
+                if (part.winnerTeamId === participant.teamId) {
+                    targetPart = part;
+                    break;
+                } else if (!participant.teamId && part.winnerParticipantId === participant.id) {
+                    // For singles, check individual winner
+                    targetPart = part;
+                    break;
+                }
+            }
+        }
+
+        if (!targetPart) {
+            console.error("❌ Could not find part with scores for side", teamSide);
+            throw new Error("NO_SCORED_PART_FOUND");
+        }
+
+        console.log(`🎯 Found target part ${targetPart.partNumber}:`, {
+            p1Score: targetPart.p1Score,
+            p2Score: targetPart.p2Score,
+            winnerParticipantId: targetPart.winnerParticipantId,
+            winnerTeamId: targetPart.winnerTeamId
+        });
+
+        // Validate and undo based on team side
+        if (teamSide === 1) {
+            if (targetPart.p1Score <= 0) throw new Error("INVALID_UNDO");
+            targetPart.p1Score--;
+            console.log(`➖ Decremented p1Score to ${targetPart.p1Score}`);
+        } else if (teamSide === 2) {
+            if (targetPart.p2Score <= 0) throw new Error("INVALID_UNDO");
+            targetPart.p2Score--;
+            console.log(`➖ Decremented p2Score to ${targetPart.p2Score}`);
+        } else {
+            throw new Error(`Invalid side: ${teamSide}`);
+        }
+
+        // Reset winner status if this part was won
+        const wasPartWon = targetPart.winnerParticipantId || targetPart.winnerTeamId;
+        if (wasPartWon) {
+            targetPart.winnerParticipantId = null;
+            targetPart.winnerUserId = null;
+            targetPart.winnerTeamId = null;
+            console.log(`🏆 Reset winner status on part ${targetPart.partNumber}`);
+        }
+
+        // Update the part
+        await tx.matchPart.update({
+            where: { id: targetPart.id },
+            data: {
+                p1Score: targetPart.p1Score,
+                p2Score: targetPart.p2Score,
+                winnerParticipantId: targetPart.winnerParticipantId,
+                winnerUserId: targetPart.winnerUserId,
+                winnerTeamId: targetPart.winnerTeamId
+            }
+        });
+
+        // Handle match completion status
+        const wasCompleted = match.status === "COMPLETED";
+        if (wasCompleted) {
+            // Check if any part still has a winner
+            const anyWinner = match.parts.some(p => p.winnerParticipantId || p.winnerTeamId);
+            if (!anyWinner) {
+                await tx.match.update({
+                    where: { id: matchId },
+                    data: {
+                        status: "LIVE",
+                        winnerParticipantId: null,
+                        winnerUserId: null,
+                        winnerTeamId: null,
+                        completedAt: null
+                    }
+                });
+                console.log(`🔄 Match ${matchId} reverted from COMPLETED to LIVE`);
+            }
+        }
+
+        // Create UNDO event
+        await tx.matchEvent.create({
+            data: {
+                matchId,
+                type: "UNDO",
+                payload: {
+                    undoneEventId: lastScoreEvent.id,
+                    partNumber: targetPart.partNumber,
+                    side: teamSide,
+                    userId: userId,
+                    teamId: participant.teamId,
+                    requestedBy: requestedByUserId,
+                    matchWasCompleted: wasCompleted,
+                    timestamp: new Date().toISOString()
+                }
+            }
+        });
+
+        return {
+            success: true,
+            wasCompleted,
+            part: {
+                number: targetPart.partNumber,
+                p1Score: targetPart.p1Score,
+                p2Score: targetPart.p2Score
+            }
+        };
+    });
+};
+
+
+/**
+ * Advance winner to next match in bracket
+ */
+export const advanceWinnerToNextMatch = async (matchId, winnerParticipantId, winnerUserId, winnerTeamId = null) => {
+    console.log(`\n========== ADVANCE WINNER DEBUG ==========`);
+    console.log(`📌 Called with: matchId=${matchId}, winnerParticipantId=${winnerParticipantId}, winnerUserId=${winnerUserId}, winnerTeamId=${winnerTeamId}`);
+    console.log(`📌 Timestamp: ${new Date().toISOString()}`);
+
+    return await prisma.$transaction(async (tx) => {
+        try {
+            // 1. Get the current match details
+            console.log(`🔍 Fetching current match: ${matchId}`);
+            const currentMatch = await tx.match.findUnique({
+                where: { id: matchId },
+                include: {
+                    tournament: {
+                        include: {
+                            rules: true,
+                            participants: true
+                        }
+                    }
+                }
+            });
+
+            if (!currentMatch) {
+                console.error(`❌ Match ${matchId} not found in database`);
+                throw new Error(`Match ${matchId} not found`);
+            }
+
+            console.log(`✅ Current match found:`, {
+                id: currentMatch.id,
+                round: currentMatch.round,
+                bracketPosition: currentMatch.bracketPosition,
+                tournamentId: currentMatch.tournamentId,
+                status: currentMatch.status,
+                gameType: currentMatch.gameType
+            });
+
+            // 2. Calculate total rounds and check if this is a special case
+            const totalPlayers = currentMatch.tournament.participants.length;
+            const bracketSize = Math.pow(2, Math.ceil(Math.log2(totalPlayers)));
+            const totalRounds = Math.ceil(Math.log2(bracketSize));
+
+            console.log(`📊 Tournament stats:`, {
+                totalPlayers,
+                bracketSize,
+                totalRounds,
+                currentRound: currentMatch.round
+            });
+
+            // 3. SPECIAL CASE: For first round with byes
+            let nextRound = currentMatch.round + 1;
+            let nextMatchBracketPosition;
+            let nextMatchPosition;
+
+            if (currentMatch.round === 1 && totalPlayers < bracketSize) {
+                const firstRoundMatches = Math.floor(totalPlayers / 2);
+                const byeCount = bracketSize - totalPlayers;
+                nextMatchBracketPosition = Math.floor(currentMatch.bracketPosition + (byeCount / 2));
+                nextMatchPosition = 2;
+                console.log(`🎯 Special case (tournament with byes):`, {
+                    firstRoundMatches,
+                    byeCount,
+                    calculatedNextBracketPosition: nextMatchBracketPosition,
+                    calculatedNextPosition: nextMatchPosition
+                });
+            } else {
+                // Normal case - standard bracket math
+                nextMatchBracketPosition = Math.floor(currentMatch.bracketPosition / 2);
+                nextMatchPosition = (currentMatch.bracketPosition % 2) + 1;
+            }
+
+            console.log(`🧮 Final Bracket Math Calculation:`, {
+                currentRound: currentMatch.round,
+                currentBracketPosition: currentMatch.bracketPosition,
+                nextRound,
+                nextMatchBracketPosition,
+                nextMatchPosition,
+                isSpecialCase: currentMatch.round === 1 && totalPlayers < bracketSize
+            });
+
+            // 4. Find the next match
+            console.log(`🔍 Searching for next match:`, {
+                tournamentId: currentMatch.tournamentId,
+                round: nextRound,
+                bracketPosition: nextMatchBracketPosition
+            });
+
+            const nextMatch = await tx.match.findFirst({
+                where: {
+                    tournamentId: currentMatch.tournamentId,
+                    round: nextRound,
+                    bracketPosition: nextMatchBracketPosition
+                },
+                include: {
+                    participants: true
+                }
+            });
+
+            if (!nextMatch) {
+                console.log(`🎉 Match ${matchId} was the final! Tournament complete.`);
+
+                await declareTournamentWinner(
+                    tx,
+                    currentMatch.tournamentId,
+                    winnerParticipantId,
+                    winnerUserId,
+                    winnerTeamId,
+                    currentMatch.gameType
+                );
+
+                return {
+                    advanced: false,
+                    reason: "tournament_completed",
+                    isFinal: true
+                };
+            }
+
+            console.log(`✅ Next match found:`, {
+                id: nextMatch.id,
+                round: nextMatch.round,
+                bracketPosition: nextMatch.bracketPosition,
+                status: nextMatch.status,
+                gameType: nextMatch.gameType,
+                currentParticipantCount: nextMatch.participants.length
+            });
+
+            // 5. Add winner to next match - SCALABLE APPROACH for all sports
+            const isTeamSport = nextMatch.gameType === "DOUBLES"; // Will be expanded for other team sports
+            console.log(`➕ Adding winner to next match:`, {
+                matchId: nextMatch.id,
+                isTeamSport,
+                winnerTeamId: winnerTeamId || 'N/A'
+            });
+
+            if (isTeamSport) {
+                if (!winnerTeamId) throw new Error("Winner has no team for team match");
+
+                // Get all team members
+                const teamMembers = await tx.teamMember.findMany({
+                    where: { teamId: winnerTeamId },
+                    include: { user: true }
+                });
+
+                console.log(`👥 Team ${winnerTeamId} has ${teamMembers.length} members`);
+
+                // 🔥 SCALABLE: Find which side is empty
+                const side1Participants = await tx.matchParticipant.count({
+                    where: {
+                        matchId: nextMatch.id,
+                        side: 1
+                    }
+                });
+
+                const side2Participants = await tx.matchParticipant.count({
+                    where: {
+                        matchId: nextMatch.id,
+                        side: 2
+                    }
+                });
+
+                console.log(`📊 Current match occupancy:`, {
+                    side1: side1Participants,
+                    side2: side2Participants
+                });
+
+                // Determine target side and base position
+                let targetSide;
+                let basePosition;
+
+                if (side1Participants === 0) {
+                    targetSide = 1;
+                    basePosition = 1;
+                    console.log(`🎯 Placing team on side 1 (positions 1-${teamMembers.length})`);
+                } else if (side2Participants === 0) {
+                    // Calculate max position from side 1 to determine where side 2 starts
+                    const maxPositionSide1 = await tx.matchParticipant.aggregate({
+                        where: {
+                            matchId: nextMatch.id,
+                            side: 1
+                        },
+                        _max: { position: true }
+                    });
+
+                    basePosition = (maxPositionSide1._max.position || 0) + 1;
+                    targetSide = 2;
+                    console.log(`🎯 Placing team on side 2 (positions ${basePosition}-${basePosition + teamMembers.length - 1})`);
+                } else {
+                    throw new Error("No empty side available in next match");
+                }
+
+                // Check if positions are available
+                for (let i = 0; i < teamMembers.length; i++) {
+                    const targetPosition = basePosition + i;
+                    const existingAtPosition = await tx.matchParticipant.findFirst({
+                        where: {
+                            matchId: nextMatch.id,
+                            position: targetPosition
+                        }
+                    });
+
+                    if (existingAtPosition) {
+                        throw new Error(`Position ${targetPosition} already filled by different player`);
+                    }
+                }
+
+                // Add all team members
+                for (let i = 0; i < teamMembers.length; i++) {
+                    const targetPosition = basePosition + i;
+
+                    await tx.matchParticipant.create({
+                        data: {
+                            matchId: nextMatch.id,
+                            userId: teamMembers[i].userId,
+                            teamId: winnerTeamId,
+                            side: targetSide,
+                            position: targetPosition
+                        }
+                    });
+
+                    console.log(`   ✅ Added ${teamMembers[i].user?.name || 'player'} at position ${targetPosition}`);
+                }
+            } else {
+                // Singles - simple position-based placement
+                console.log(`👤 Adding single player to next match at position ${nextMatchPosition}`);
+
+                // Check if position is available
+                const existingAtPosition = await tx.matchParticipant.findFirst({
+                    where: {
+                        matchId: nextMatch.id,
+                        position: nextMatchPosition
+                    }
+                });
+
+                if (existingAtPosition) {
+                    if (existingAtPosition.userId === winnerUserId) {
+                        console.log(`✅ Winner already in next match at correct position`);
+                        return { advanced: true, message: "Winner already in next match" };
+                    } else {
+                        throw new Error(`Position ${nextMatchPosition} already filled by different player`);
+                    }
+                }
+
+                await tx.matchParticipant.create({
+                    data: {
+                        matchId: nextMatch.id,
+                        userId: winnerUserId,
+                        position: nextMatchPosition
+                    }
+                });
+            }
+
+            // 6. Check if next match is ready
+            const participantCount = await tx.matchParticipant.count({
+                where: { matchId: nextMatch.id }
+            });
+
+            // Calculate required participants based on sport type
+            let requiredParticipants;
+            if (nextMatch.gameType === "DOUBLES") {
+                requiredParticipants = 4; // 2 teams × 2 players
+            } else if (nextMatch.gameType === "SINGLES") {
+                requiredParticipants = 2; // 2 players
+            } else {
+                // For future team sports, calculate based on team size
+                // This would need team size from tournament rules
+                requiredParticipants = 22; // Example for cricket/football
+            }
+
+            console.log(`📊 Match readiness check:`, {
+                participantCount,
+                requiredParticipants,
+                gameType: nextMatch.gameType
+            });
+
+            let statusUpdated = false;
+            if (participantCount === requiredParticipants) {
+                await tx.match.update({
+                    where: { id: nextMatch.id },
+                    data: { status: "SCHEDULED" }
+                });
+                statusUpdated = true;
+                console.log(`✅ Match ${nextMatch.id} is now SCHEDULED with ${participantCount} participants`);
+            } else {
+                console.log(`⏳ Match ${nextMatch.id} needs ${requiredParticipants - participantCount} more participants`);
+            }
+
+            return {
+                advanced: true,
+                nextMatchId: nextMatch.id,
+                nextMatchPosition: nextMatchPosition,
+                participantCount,
+                requiredParticipants,
+                statusUpdated,
+                isTeamSport
+            };
+
+        } catch (error) {
+            console.error(`❌ Error in advanceWinner:`, error);
+            throw error;
+        }
+    });
+};
+
+
+
+/**
+ * Declare tournament winner when final match completes
+ */
+export const declareTournamentWinner = async (tx, tournamentId, winnerParticipantId, winnerUserId, winnerTeamId, gameType) => {
+    console.log(`🏆 Declaring tournament winner for ${tournamentId}`);
+    console.log(`📌 Winner:`, {
+        participantId: winnerParticipantId,
+        userId: winnerUserId,
+        teamId: winnerTeamId,
+        gameType
+    });
+
+    // 🔥 FIX: Find the correct TournamentParticipant based on gameType
+    let tournamentParticipant;
+
+    if (gameType === "SINGLES") {
+        // For singles, find by playerId
+        tournamentParticipant = await tx.tournamentParticipant.findFirst({
+            where: {
+                tournamentId,
+                playerId: winnerUserId
+            }
+        });
+        console.log(`🔍 Found singles participant:`, tournamentParticipant?.id);
+    } else {
+        // For DOUBLES/TEAMS, find by teamId - THIS IS CORRECT!
+        tournamentParticipant = await tx.tournamentParticipant.findFirst({
+            where: {
+                tournamentId,
+                teamId: winnerTeamId
+            }
+        });
+        console.log(`🔍 Found team participant:`, tournamentParticipant?.id);
+    }
+
+    if (!tournamentParticipant) {
+        console.error(`❌ Could not find TournamentParticipant for winner`);
+        throw new Error("WINNER_PARTICIPANT_NOT_FOUND");
+    }
+
+    const updateData = {
+        status: "COMPLETED",
+        winnerParticipantId: tournamentParticipant.id,  // ✅ Use the found ID
+    };
+
+    if (gameType === "SINGLES") {
+        updateData.winnerUserId = winnerUserId;
+        updateData.winnerTeamId = null;
+        console.log(`👤 Singles tournament winner: user ${winnerUserId}`);
+    } else {
+        updateData.winnerTeamId = winnerTeamId;
+        updateData.winnerUserId = null;
+        console.log(`👥 Doubles tournament winner: team ${winnerTeamId}`);
+    }
+
+    await tx.tournament.update({
+        where: { id: tournamentId },
+        data: updateData
+    });
+
+    // Update all participants as eliminated except winner
+    await tx.tournamentParticipant.updateMany({
+        where: {
+            tournamentId,
+            NOT: { id: tournamentParticipant.id }
+        },
+        data: { eliminated: true }
+    });
+
+    console.log(`✅ Tournament ${tournamentId} completed!`);
+};
+
 
 /**
  * Get comprehensive match state with all details for broadcasting
@@ -760,212 +1127,6 @@ export const createQuickMatch = async ({
     });
 };
 
-
-// export const createBracketMatch = async ({
-//     tournament,
-//     tournamentId,
-//     sportCode,
-//     gameType,
-//     playerAId,
-//     playerBId,
-//     round,
-// }) => {
-//     console.log("tournament at createBracketMatch:", tournament)
-//     return prisma.$transaction(async (tx) => {
-//         const match = await tx.match.create({
-//             data: {
-//                 tournamentId,
-//                 sportCode,
-//                 gameType,
-//                 round,
-//                 status: "SCHEDULED", // not scheduled yet
-//             },
-//         });
-
-//         await tx.matchParticipant.createMany({
-//             data: [
-//                 { matchId: match.id, userId: playerAId, position: 1 },
-//                 { matchId: match.id, userId: playerBId, position: 2 },
-//             ],
-//         });
-
-//         return match;
-//     });
-// };
-
-// export const createBracketMatch = async (
-//     tx,
-//     {
-//         tournament,
-//         playerAId,
-//         playerBId,
-//         round,
-//     }
-// ) => {
-//     console.log("tournament at createBracketMatch:", tournament);
-
-//     const match = await tx.match.create({
-//         data: {
-//             tournamentId: tournament.id,
-//             sportCode: tournament.sportCode,
-//             gameType: tournament.rules.gameType,
-//             round,
-//             partsCount: tournament.rules.partsPerMatch,
-//             status: "SCHEDULED",
-
-//             // ✅ REQUIRED (you map values later)
-//             locationId: tournament.locationId,
-//             // officialUserId: officialUserId,
-//         },
-//     });
-
-
-//     await tx.matchParticipant.createMany({
-//         data: [
-//             { matchId: match.id, userId: playerAId, position: 1 },
-//             { matchId: match.id, userId: playerBId, position: 2 },
-//         ],
-//     });
-
-//     return match;
-// };
-
-// export const createBracketMatch = async (
-//     tx,
-//     {
-//         tournament,
-//         playerAId,
-//         playerBId,
-//         round,
-//     }
-// ) => {
-//     console.log("tournament at createBracketMatch:", tournament)
-//     if (!tournament.locations || tournament.locations.length === 0) {
-//         throw new Error("TOURNAMENT_LOCATION_NOT_SET");
-//     }
-
-//     const locationId = tournament.locations[0].id; // pick first for now
-
-//     const match = await tx.match.create({
-//         data: {
-//             sportCode: tournament.sportCode,
-//             gameType: tournament.rules.gameType,
-//             round,
-//             partsCount: tournament.rules.partsPerMatch,
-//             status: "SCHEDULED",
-
-//             // ✅ RELATION CONNECTS (THIS IS THE KEY)
-//             tournament: {
-//                 connect: { id: tournament.id },
-//             },
-
-//             location: {
-//                 connect: { id: locationId },
-//             },
-//         },
-//     });
-
-//     await tx.matchParticipant.createMany({
-//         data: [
-//             { matchId: match.id, userId: playerAId, position: 1 },
-//             { matchId: match.id, userId: playerBId, position: 2 },
-//         ],
-//     });
-
-//     return match;
-// };
-
-// Create a bracket match (for both singles and doubles)
-// export const createBracketMatch = async (
-//     tx,
-//     {
-//         tournament,
-//         playerAId = null,
-//         playerBId = null,
-//         teamAId = null,
-//         teamBId = null,
-//         round,
-//         bracketPosition,
-//         status = "PENDING" // Future rounds start as PENDING
-//     }
-// ) => {
-//     const isDoubles = tournament.rules.gameType === "DOUBLES";
-
-//     // Create the match
-//     const match = await tx.match.create({
-//         data: {
-//             tournamentId: tournament.id,
-//             sportCode: tournament.sportCode,
-//             gameType: isDoubles ? "DOUBLES" : "SINGLES",
-//             partsCount: tournament.rules.partsPerMatch,
-//             round,
-//             bracketPosition,
-//             status,
-//             locationId: tournament.locations[0]?.id,
-//         }
-//     });
-
-//     // If this is round 1 with actual participants, add them
-//     if (status === "SCHEDULED") {
-//         if (isDoubles) {
-//             // Add doubles participants
-//             if (teamAId) {
-//                 const teamAMembers = await tx.teamMember.findMany({
-//                     where: { teamId: teamAId }
-//                 });
-//                 for (let i = 0; i < teamAMembers.length; i++) {
-//                     await tx.matchParticipant.create({
-//                         data: {
-//                             matchId: match.id,
-//                             userId: teamAMembers[i].userId,
-//                             team: 1,
-//                             position: i + 1
-//                         }
-//                     });
-//                 }
-//             }
-
-//             if (teamBId) {
-//                 const teamBMembers = await tx.teamMember.findMany({
-//                     where: { teamId: teamBId }
-//                 });
-//                 for (let i = 0; i < teamBMembers.length; i++) {
-//                     await tx.matchParticipant.create({
-//                         data: {
-//                             matchId: match.id,
-//                             userId: teamBMembers[i].userId,
-//                             team: 2,
-//                             position: i + 3
-//                         }
-//                     });
-//                 }
-//             }
-//         } else {
-//             // Add singles participants
-//             if (playerAId) {
-//                 await tx.matchParticipant.create({
-//                     data: {
-//                         matchId: match.id,
-//                         userId: playerAId,
-//                         position: 1
-//                     }
-//                 });
-//             }
-//             if (playerBId) {
-//                 await tx.matchParticipant.create({
-//                     data: {
-//                         matchId: match.id,
-//                         userId: playerBId,
-//                         position: 2
-//                     }
-//                 });
-//             }
-//         }
-//     }
-
-//     return match;
-// };
-
 export const createBracketMatch = async (
     tx,
     {
@@ -1152,8 +1313,6 @@ export const createMatchDependency = async (
 };
 
 
-
-
 export const createMatchesBulk = async ({ tournamentId, matches }) => {
     return prisma.$transaction(async (tx) => {
         const created = [];
@@ -1182,7 +1341,6 @@ export const createMatchesBulk = async ({ tournamentId, matches }) => {
     });
 };
 
-
 export const listMatchesByTournament = async (tournamentId) => {
     return prisma.match.findMany({
         where: { tournamentId },
@@ -1200,123 +1358,6 @@ export const listMatchesByTournament = async (tournamentId) => {
     });
 };
 
-
-// export const listMatches = async ({
-//     requesterId,
-//     tournamentId,
-//     status,
-//     scope,
-//     page,
-//     limit,
-// }) => {
-//     const now = new Date();
-
-//     const where = {};
-
-//     if (tournamentId) where.tournamentId = tournamentId;
-
-//     /* ------------------
-//        STATUS FILTER
-//     ------------------ */
-//     if (status === "upcoming") {
-//         where.startTime = { gt: now };
-//     }
-
-//     if (status === "ongoing") {
-//         where.startTime = { lte: now };
-//         where.OR = [
-//             { endTime: null },
-//             { endTime: { gte: now } },
-//         ];
-//     }
-
-//     if (status === "completed") {
-//         where.OR = [
-//             { endTime: { lt: now } },
-//             { status: "COMPLETED" },
-//         ];
-//     }
-
-//     /* ------------------
-//        MY MATCHES
-//     ------------------ */
-//     if (scope === "my" && requesterId) {
-//         where.OR = [
-//             {
-//                 participants: {
-//                     some: {
-//                         OR: [
-//                             { userId: requesterId },
-//                             { team: { members: { some: { userId: requesterId } } } },
-//                         ],
-//                     },
-//                 },
-//             },
-//             {
-//                 invitations: {
-//                     some: {
-//                         playerId: requesterId,
-//                         status: "ACCEPTED",
-//                     },
-//                 },
-//             },
-//         ];
-//     }
-
-//     /* ------------------
-//        PAGINATION
-//     ------------------ */
-//     const skip = (page - 1) * limit;
-
-//     const [items, total] = await Promise.all([
-//         prisma.match.findMany({
-//             where,
-//             skip,
-//             take: limit,
-//             orderBy: { startTime: "desc" },
-//             include: {
-//                 participants: {
-//                     include: {
-//                         user: true,
-//                         // team: true,
-//                     },
-//                 },
-//                 tournament: true,
-//             },
-//         }),
-//         prisma.match.count({ where }),
-//     ]);
-
-//     const formattedMatches = items.map((match) => ({
-//         ...match,
-//         participants: match.participants.map((p) => ({
-//             id: p.id,
-//             user: {
-//                 id: p.user.id,
-//                 name: p.user.name,
-//                 username: p.user.username,
-//                 phone: p.user.phone,
-//             },
-//             team: match.gameType === "DOUBLES" ? p.team : null,
-//             position: p.position,
-//         })),
-//         isParticipant: requesterId
-//             ? match.participants.some(
-//                 (p) => p.userId === requesterId || p.team?.members?.some((m) => m.userId === requesterId)
-//             )
-//             : false,
-//     }));
-
-//     return {
-//         meta: {
-//             page,
-//             limit,
-//             total,
-//             totalPages: Math.ceil(total / limit),
-//         },
-//         data: formattedMatches,
-//     };
-// };
 
 export const listMatches = async ({
     requesterId,

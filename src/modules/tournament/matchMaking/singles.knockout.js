@@ -110,17 +110,59 @@ export const runSinglesKnockout = async (tournament) => {
         // ============================================
         // STEP 4: Create dependencies from Round 1 to Round 2
         // ============================================
+        // for (let i = 0; i < matchesByRound[1].length; i++) {
+        //     const round1Match = matchesByRound[1][i];
+        //     // Each Round 1 match feeds into the corresponding Round 2 match's first slot
+        //     const targetRound2Match = matchesByRound[2][i];
+
+        //     if (targetRound2Match) {
+        //         await createMatchDependency(tx, {
+        //             futureMatchId: targetRound2Match.id,
+        //             previousMatchId: round1Match.id,
+        //             position: 1 // First slot (position 1)
+        //         });
+        //     }
+        // }
+
+        // ============================================
+        // STEP 4: Create dependencies from Round 1 to Round 2
+        // ============================================
         for (let i = 0; i < matchesByRound[1].length; i++) {
             const round1Match = matchesByRound[1][i];
-            // Each Round 1 match feeds into the corresponding Round 2 match's first slot
             const targetRound2Match = matchesByRound[2][i];
 
-            if (targetRound2Match) {
+            if (!targetRound2Match) continue;
+
+            // Find which positions are already filled by bye players
+            const existingParticipants = await tx.matchParticipant.findMany({
+                where: { matchId: targetRound2Match.id },
+                select: { position: true }
+            });
+
+            const filledPositions = new Set(existingParticipants.map(p => p.position));
+
+            // Determine which position needs the winner
+            if (!filledPositions.has(1)) {
+                // Position 1 is empty
                 await createMatchDependency(tx, {
                     futureMatchId: targetRound2Match.id,
                     previousMatchId: round1Match.id,
-                    position: 1 // First slot (position 1)
+                    position: 1
                 });
+                console.log(`📌 Dependency: Match ${round1Match.id} → ${targetRound2Match.id} (pos 1)`);
+            }
+            else if (!filledPositions.has(2)) {
+                // Position 1 is filled but position 2 is empty
+                await createMatchDependency(tx, {
+                    futureMatchId: targetRound2Match.id,
+                    previousMatchId: round1Match.id,
+                    position: 2
+                });
+                console.log(`📌 Dependency: Match ${round1Match.id} → ${targetRound2Match.id} (pos 2)`);
+            }
+            else {
+                // Both positions are filled - no dependency needed
+                console.log(`ℹ️ Match ${targetRound2Match.id} already full, no dependency needed`);
             }
         }
 

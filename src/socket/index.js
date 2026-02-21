@@ -1,4 +1,4 @@
-import { recordEvent, getMatchState } from "../modules/match/match.service.js";
+import { recordEvent, getMatchState, undoLastScore } from "../modules/match/match.service.js";
 import prisma from "../lib/prisma.js";
 
 // Store active match rooms and their subscribers
@@ -215,15 +215,6 @@ export const initializeSocket = (io) => {
         socket.on("score-event", async (data) => {
             try {
                 console.log("📥 Received score-event:", JSON.stringify(data, null, 2));
-                // console.log("📥 Type of data:", typeof data);
-                // console.log("📥 Is array?", Array.isArray(data));
-
-                // if (Array.isArray(data)) {
-                //     console.log("📥 Array length:", data.length);
-                //     console.log("📥 data[0]:", data[0]);
-                //     console.log("📥 data[1]:", data[1]);
-                //     console.log("📥 data[2]:", data[2]);
-                // }
 
                 // Handle different data formats
                 let matchId, type, payload;
@@ -259,19 +250,16 @@ export const initializeSocket = (io) => {
                     return;
                 }
 
-                // Add scoringParticipantId if not provided
-                const eventPayload = {
-                    ...payload,
-                    scoringParticipantId: payload?.scoringParticipantId || participant.id
-                };
-
+                // 🔥 FIX: Don't modify the payload - let recordEvent handle both fields
+                // Pass the payload exactly as received from the client
                 console.log(`🎯 Processing score event for match ${matchId} by participant ${socket.userId}`);
+                console.log("📦 Original payload:", payload);
 
-                // Process the event using existing service
+                // Process the event using existing service - pass ORIGINAL payload
                 const result = await recordEvent({
                     matchId,
                     type,
-                    payload: eventPayload
+                    payload: payload  // ← Pass untouched! recordEvent handles both userId and scoringParticipantId
                 });
 
                 // Get updated match state
@@ -283,7 +271,7 @@ export const initializeSocket = (io) => {
                     type: "score",
                     event: {
                         type,
-                        payload: eventPayload,
+                        payload: payload,  // ← Send original payload
                         userId: socket.userId,
                         timestamp: new Date().toISOString()
                     },
@@ -316,6 +304,60 @@ export const initializeSocket = (io) => {
 
             } catch (error) {
                 console.error("❌ Error processing score event:", error);
+                socket.emit("error", { message: error.message });
+            }
+        });
+
+
+        // ============================================
+        // UNDO LAST SCORE - Only participants can undo
+        // ============================================
+        socket.on("undo-last", async () => {
+            try {
+                if (!socket.matchId) {
+                    socket.emit("error", { message: "Not in any match room" });
+                    return;
+                }
+
+                console.log(`↩️ Undo requested for match ${socket.matchId} by user ${socket.userId}`);
+
+                // Check if user is a participant
+                const participant = await prisma.matchParticipant.findFirst({
+                    where: {
+                        matchId: socket.matchId,
+                        userId: socket.userId
+                    }
+                });
+
+                if (!participant) {
+                    socket.emit("error", { message: "Only match participants can undo scores" });
+                    return;
+                }
+
+                // Call the undo service
+                const result = await undoLastScore({
+                    matchId: socket.matchId,
+                    requestedByUserId: socket.userId
+                });
+
+                // Get updated match state
+                const updatedMatch = await getMatchState(socket.matchId);
+
+                // Broadcast to everyone
+                io.to(`match:${socket.matchId}`).emit("match-update", {
+                    type: "undo",
+                    match: updatedMatch,
+                    timestamp: new Date().toISOString()
+                });
+
+                // Confirm to requester
+                socket.emit("undo-confirmed", {
+                    success: true,
+                    message: "Last score undone successfully"
+                });
+
+            } catch (error) {
+                console.error("❌ Error undoing last score:", error);
                 socket.emit("error", { message: error.message });
             }
         });
