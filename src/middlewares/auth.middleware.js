@@ -9,6 +9,7 @@ export const authMiddleware = async (req, res, next) => {
         "/auth/signup",
         "/auth/request-otp",
         "/auth/verify-otp",
+        "/auth/verify-token",
         "/health",
     ];
 

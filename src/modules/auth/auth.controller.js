@@ -300,6 +300,70 @@ export const verifyOtp = async (req, res) => {
     }
 };
 
+export const verifyFirebaseToken = async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: "Firebase ID token is required",
+            });
+        }
+
+        // 1️⃣ Verify the ID token with Firebase Admin SDK
+        const decodedToken = await verifyIdToken(token);
+        const phone = decodedToken.phone_number;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid token: No phone number associated",
+            });
+        }
+
+        // 2️⃣ Fetch or Create user
+        let user = await prisma.user.findUnique({
+            where: { phone },
+        });
+
+        if (!user) {
+            user = await prisma.user.create({
+                data: { phone }
+            });
+        }
+
+        // 3️⃣ Create session (7 days)
+        const session = await prisma.session.create({
+            data: {
+                userId: user.id,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+        });
+
+        // 4️⃣ cookie for web
+        res.cookie("sessionId", session.id, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        return res.json({
+            success: true,
+            sessionId: session.id,
+            user,
+            firebaseUid: decodedToken.uid
+        });
+    } catch (error) {
+        console.error("Verify Firebase Token error:", error.message);
+        return res.status(401).json({
+            success: false,
+            message: "Token verification failed",
+        });
+    }
+};
+
 
 export const verifySession = async (req, res) => {
     try {
