@@ -120,57 +120,6 @@ export const endMatch = async (req, res) => {
     }
 };
 
-// export const createMatch = async (req, res) => {
-//     try {
-//         const { tournamentId } = req.params; // optional
-
-//         const {
-//             name,
-//             sportCode,
-//             locationId,
-//             playArea,
-//             gameType,
-//             partsCount,
-//             startTime,
-//             officialUserPhone,
-//             participantIds,            // array of User IDs
-//             servingParticipantId, // optional, User ID
-//         } = req.body;
-
-//         if (!sportCode) throw new Error("SPORT_CODE_REQUIRED");
-//         if (!gameType) throw new Error("GAME_TYPE_REQUIRED");
-//         if (!Array.isArray(participantIds) || participantIds.length === 0)
-//             throw new Error("PARTICIPANTS_REQUIRED");
-
-//         const match = await matchService.createMatch({
-//             name,
-//             tournamentId,
-//             sportCode,
-//             locationId,
-//             playArea,
-//             gameType,
-//             partsCount,
-//             startTime: startTime ? new Date(startTime) : null,
-//             officialUserPhone,
-//             participantIds,
-//             servingParticipantId,
-//         });
-
-//         res.status(201).json({
-//             success: true,
-//             message: "MATCH_CREATED",
-//             data: match,
-//         });
-//     } catch (error) {
-//         console.error("Create Match Error:", error);
-//         res.status(400).json({
-//             success: false,
-//             message: error.message,
-//         });
-//     }
-// };
-
-
 export const createQuickMatch = async (req, res) => {
     try {
         const {
@@ -236,7 +185,6 @@ export const createQuickMatch = async (req, res) => {
         });
     }
 };
-
 
 export const createMatchesBulk = async (req, res) => {
     try {

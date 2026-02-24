@@ -1050,7 +1050,7 @@ export const createQuickMatch = async ({
         }
 
         // 2️⃣ Handle location (connectOrCreate)
-        const locationId = locations[0]?.id ?? null; // pick first location for quick match
+        const locationId = locations[0]?.id ?? null;
         if (!locationId) {
             const loc = locations[0];
             const createdLocation = await tx.location.upsert({
@@ -1065,7 +1065,7 @@ export const createQuickMatch = async ({
                     country: loc.country ?? "India",
                     zipCode: loc.zipCode ?? null,
                 },
-                update: {}, // no-op
+                update: {},
             });
             locations[0].id = createdLocation.id;
         }
@@ -1096,12 +1096,12 @@ export const createQuickMatch = async ({
             },
         });
 
-        // 5️⃣ Add participants
+        // 5️⃣ Add participants with side for doubles
         const participantsData = participantIds.map((userId, index) => ({
             matchId: match.id,
             userId,
             position: index + 1,
-            team: gameType === "DOUBLES" ? (index < 2 ? 1 : 2) : null,
+            side: gameType === "DOUBLES" ? (index < 2 ? 1 : 2) : null,
         }));
 
         await tx.matchParticipant.createMany({ data: participantsData });
@@ -1109,10 +1109,17 @@ export const createQuickMatch = async ({
         // 6️⃣ Set serving participant if exists
         if (servingParticipantId) {
             const serving = await tx.matchParticipant.findFirst({
-                where: { matchId: match.id, userId: servingParticipantId },
+                where: {
+                    matchId: match.id,
+                    userId: servingParticipantId
+                },
             });
             if (!serving) throw new Error("SERVING_PARTICIPANT_NOT_FOUND");
-            await tx.match.update({ where: { id: match.id }, data: { servingParticipantId: serving.id } });
+
+            await tx.match.update({
+                where: { id: match.id },
+                data: { servingParticipantId: serving.id }
+            });
         }
 
         // 7️⃣ Create match parts
@@ -1123,7 +1130,44 @@ export const createQuickMatch = async ({
             })),
         });
 
-        return match;
+        // 8️⃣ Return the complete match with all relations
+        const completeMatch = await tx.match.findUnique({
+            where: { id: match.id },
+            include: {
+                participants: {
+                    include: {
+                        user: {
+                            select: {
+                                id: true,
+                                name: true,
+                                phone: true,
+                                username: true,
+                                profileImage: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        position: 'asc'
+                    }
+                },
+                location: true,
+                official: {
+                    select: {
+                        id: true,
+                        name: true,
+                        phone: true,
+                        username: true
+                    }
+                },
+                parts: {
+                    orderBy: {
+                        partNumber: 'asc'
+                    }
+                }
+            }
+        });
+
+        return completeMatch;
     });
 };
 
