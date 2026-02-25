@@ -13,12 +13,23 @@ export const startMatch = async (matchId) => {
 
     if (!match) throw new Error("MATCH_NOT_FOUND");
 
+    // 🔥 FIX: Instead of throwing errors, return success with appropriate message
     if (match.status === "LIVE") {
-        throw new Error("MATCH_ALREADY_LIVE");
+        console.log(`⚠️ Match ${matchId} is already LIVE`);
+        return {
+            success: true,
+            message: "MATCH_ALREADY_LIVE",
+            data: match
+        };
     }
 
     if (match.status === "COMPLETED") {
-        throw new Error("MATCH_ALREADY_COMPLETED");
+        console.log(`⚠️ Match ${matchId} is already COMPLETED`);
+        return {
+            success: true,
+            message: "MATCH_ALREADY_COMPLETED",
+            data: match
+        };
     }
 
     // 1️⃣ Create MatchPart entries if not exist
@@ -36,15 +47,22 @@ export const startMatch = async (matchId) => {
     }
 
     // 2️⃣ Update match status
-    return prisma.match.update({
+    const updatedMatch = await prisma.match.update({
         where: { id: matchId },
         data: {
             status: "LIVE",
             startedAt: new Date(),
         },
     });
-};
 
+    console.log(`✅ Match ${matchId} started successfully`);
+
+    return {
+        success: true,
+        message: "MATCH_STARTED",
+        data: updatedMatch
+    };
+};
 
 export const recordEvent = async ({ matchId, type, payload }) => {
     const match = await prisma.match.findUnique({
