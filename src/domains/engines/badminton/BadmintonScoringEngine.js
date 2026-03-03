@@ -82,7 +82,7 @@ export class BadmintonScoringEngine extends ScoringEngine {
         const maxScore = Math.max(p1Score, p2Score);
 
         // Using 3 for testing - change to 21 for production
-        if (maxScore >= 3 && scoreDiff >= 2) {
+        if (maxScore >= 21 && scoreDiff >= 2) {
             const isTeamSport = match.gameType === "DOUBLES";
             const winnerSide = p1Score > p2Score ? 1 : 2;
 

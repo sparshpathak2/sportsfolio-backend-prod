@@ -122,33 +122,92 @@ export const endMatch = async (req, res) => {
     }
 };
 
+// export const createQuickMatch = async (req, res) => {
+//     try {
+//         const {
+//             name,
+//             sportCode,
+//             tournamentId,
+//             locations,         // array of location objects
+//             playArea,
+//             gameType,
+//             partsCount,
+//             startTime,
+//             officialUserPhone,
+//             participantIds,    // array of User IDs
+//             servingParticipantId,
+//         } = req.body;
+
+//         if (!sportCode || !gameType) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "sportCode and gameType are required",
+//             });
+//         }
+
+//         if (!Array.isArray(participantIds) || participantIds.length === 0) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "participantIds are required",
+//             });
+//         }
+
+//         const parsedLocations = parseIfString(locations);
+//         if (!parsedLocations?.length) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "At least one location is required",
+//             });
+//         }
+
+//         const match = await matchService.createQuickMatch({
+//             name,
+//             sportCode,
+//             tournamentId,
+//             locations: parsedLocations,
+//             playArea,
+//             gameType,
+//             partsCount,
+//             startTime: startTime ? new Date(startTime) : null,
+//             officialUserPhone,
+//             participantIds,
+//             servingParticipantId,
+//         });
+
+//         return res.status(201).json({
+//             success: true,
+//             message: "MATCH_CREATED",
+//             data: match,
+//         });
+//     } catch (error) {
+//         console.error("Create Quick Match Error:", error);
+//         return res.status(400).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const createQuickMatch = async (req, res) => {
     try {
         const {
             name,
             sportCode,
             tournamentId,
-            locations,         // array of location objects
+            locations,
             playArea,
             gameType,
             partsCount,
             startTime,
             officialUserPhone,
-            participantIds,    // array of User IDs
-            servingParticipantId,
+            participantIds,  // ← API always uses this
+            servingUserId,
         } = req.body;
 
         if (!sportCode || !gameType) {
             return res.status(400).json({
                 success: false,
                 message: "sportCode and gameType are required",
-            });
-        }
-
-        if (!Array.isArray(participantIds) || participantIds.length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "participantIds are required",
             });
         }
 
@@ -170,8 +229,8 @@ export const createQuickMatch = async (req, res) => {
             partsCount,
             startTime: startTime ? new Date(startTime) : null,
             officialUserPhone,
-            participantIds,
-            servingParticipantId,
+            participantIds,  // ← Pass through as-is
+            servingUserId,
         });
 
         return res.status(201).json({

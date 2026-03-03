@@ -395,50 +395,6 @@ export const initializeSocket = (io) => {
         });
 
         // ============================================
-        // UNDO LAST SCORE - Only participants can undo
-        // ============================================
-        socket.on("undo-last", async () => {
-            try {
-                if (!socket.matchId) {
-                    socket.emit("error", { message: "Not in any match room" });
-                    return;
-                }
-
-                // Check if user is participant
-                const participant = await prisma.matchParticipant.findFirst({
-                    where: {
-                        matchId: socket.matchId,
-                        userId: socket.userId
-                    }
-                });
-
-                if (!participant) {
-                    socket.emit("error", { message: "Only participants can undo scores" });
-                    return;
-                }
-
-                console.log(`↩️ Undo requested for match ${socket.matchId} by participant ${socket.userId}`);
-
-                // Call your existing undo service
-                // const result = await undoLastScore({ matchId: socket.matchId });
-
-                // Get updated match state
-                const updatedMatch = await getMatchState(socket.matchId);
-
-                // Broadcast undo to room
-                io.to(`match:${socket.matchId}`).emit("match-update", {
-                    type: "undo",
-                    match: updatedMatch,
-                    timestamp: new Date().toISOString()
-                });
-
-            } catch (error) {
-                console.error("❌ Error undoing last score:", error);
-                socket.emit("error", { message: error.message });
-            }
-        });
-
-        // ============================================
         // DISCONNECT HANDLER
         // ============================================
         socket.on("disconnect", () => {
