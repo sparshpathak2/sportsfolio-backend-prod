@@ -1,5 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import { EngineFactory, MatchProgressionFactory } from "../../domains/EngineFactory.js";
+import { calculateMatchPoints, updatePlayerStatsAfterMatch } from "../stats/stats.service.js";
 
 export const startMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
@@ -276,6 +277,87 @@ export const recordEvent = async ({ matchId, type, payload }) => {
         });
 
         matchCompleted = true;
+
+        // 🆕 UPDATE PLAYER STATS
+        try {
+            console.log(`📊 Updating player stats for match ${matchId}`);
+
+            if (match.gameType === "SINGLES") {
+                // Update winner stats
+                await updatePlayerStatsAfterMatch({
+                    userId: winnerParticipant?.userId,
+                    sportCode: match.sportCode,
+                    gameType: match.gameType,
+                    result: "WIN",
+                    matchId,
+                    points: await calculateMatchPoints(matchId, winnerParticipant?.userId)
+                });
+
+                // Update loser stats
+                const loserParticipant = updatedMatch.participants.find(
+                    p => p.id !== progression.winnerParticipantId
+                );
+                if (loserParticipant) {
+                    await updatePlayerStatsAfterMatch({
+                        userId: loserParticipant.userId,
+                        sportCode: match.sportCode,
+                        gameType: match.gameType,
+                        result: "LOSS",
+                        matchId,
+                        points: await calculateMatchPoints(matchId, loserParticipant.userId)
+                    });
+                }
+            } else {
+                // DOUBLES - update all team members
+                const winnerTeamId = winnerParticipant?.teamId;
+                const loserTeamId = updatedMatch.participants.find(
+                    p => p.teamId !== winnerTeamId
+                )?.teamId;
+
+                // Update winning team members
+                if (winnerTeamId) {
+                    const winnerTeamMembers = await prisma.teamMember.findMany({
+                        where: { teamId: winnerTeamId }
+                    });
+
+                    for (const member of winnerTeamMembers) {
+                        await updatePlayerStatsAfterMatch({
+                            userId: member.userId,
+                            sportCode: match.sportCode,
+                            gameType: match.gameType,
+                            result: "WIN",
+                            matchId,
+                            teamId: winnerTeamId,
+                            points: await calculateMatchPoints(matchId, member.userId)
+                        });
+                    }
+                }
+
+                // Update losing team members
+                if (loserTeamId) {
+                    const loserTeamMembers = await prisma.teamMember.findMany({
+                        where: { teamId: loserTeamId }
+                    });
+
+                    for (const member of loserTeamMembers) {
+                        await updatePlayerStatsAfterMatch({
+                            userId: member.userId,
+                            sportCode: match.sportCode,
+                            gameType: match.gameType,
+                            result: "LOSS",
+                            matchId,
+                            teamId: loserTeamId,
+                            points: await calculateMatchPoints(matchId, member.userId)
+                        });
+                    }
+                }
+            }
+
+            console.log(`✅ Player stats updated for match ${matchId}`);
+        } catch (statsError) {
+            console.error(`❌ Failed to update player stats:`, statsError);
+            // Don't throw - match is still completed
+        }
 
         // Advance winner to next match - pass null for winnerUserId in team sports
         console.log(`🔄 Attempting to advance winner to next match...`);

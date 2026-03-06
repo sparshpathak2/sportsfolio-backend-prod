@@ -129,6 +129,9 @@ model User {
   wonTournaments Tournament[] @relation("TournamentWinnerUser")
   wonMatchParts  MatchPart[]  @relation("MatchPartWinnerUser")
 
+  // ➕ ADD THIS: Back relation for MatchStats
+  matchStats MatchStats[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -141,7 +144,7 @@ model Sport {
 }
 
 model SportProfile {
-  id        String
+  id        String @id @default(cuid())
   userId    String
   sportCode SportCode
 
@@ -157,7 +160,6 @@ model SportProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@id([id])
   @@unique([userId, sportCode])
 }
 
@@ -185,6 +187,9 @@ model Team {
   wonMatches     Match[]      @relation("MatchWinnerTeam")
   wonTournaments Tournament[] @relation("TournamentWinnerTeam")
   wonMatchParts  MatchPart[]  @relation("MatchPartWinnerTeam")
+
+  // ➕ ADD THIS: Back relation for MatchStats
+  matchStats MatchStats[]
 
   createdAt         DateTime           @default(now())
   bracketNodes      BracketNode[]
@@ -323,8 +328,8 @@ model Tournament {
   matches      Match[]
 
   // 🏆 Winner tracking - ADD fields and references!
-  winnerParticipantId String? @unique
-  winnerParticipant TournamentParticipant? @relation("TournamentWinnerParticipant", fields: [winnerParticipantId], references: [id])
+  winnerParticipantId String?                @unique
+  winnerParticipant   TournamentParticipant? @relation("TournamentWinnerParticipant", fields: [winnerParticipantId], references: [id])
 
   // 🏆 NEW: Tournament winner by userId (for singles)
   winnerUserId String?
@@ -334,11 +339,11 @@ model Tournament {
   winnerTeamId String?
   winnerTeam   Team?   @relation("TournamentWinnerTeam", fields: [winnerTeamId], references: [id])
 
-  createdAt              DateTime                @default(now())
-  updatedAt              DateTime                @updatedAt
-  invitations            Invitation[]
-  requests               TournamentRequest[]
-  bracketNodes           BracketNode[]
+  createdAt    DateTime            @default(now())
+  updatedAt    DateTime            @updatedAt
+  invitations  Invitation[]
+  requests     TournamentRequest[]
+  bracketNodes BracketNode[]
 }
 
 model TournamentRules {
@@ -390,13 +395,13 @@ model TournamentParticipant {
 
   // Main tournament relation
   tournament Tournament? @relation("TournamentParticipants", fields: [tournamentId], references: [id], onDelete: Cascade)
-  
+
   // 🏆 Won a tournament
   wonTournament Tournament? @relation("TournamentWinnerParticipant")
-  player User? @relation("PlayerParticipation", fields: [playerId], references: [id])
-  team   Team? @relation("TeamParticipation", fields: [teamId], references: [id])
+  player        User?       @relation("PlayerParticipation", fields: [playerId], references: [id])
+  team          Team?       @relation("TeamParticipation", fields: [teamId], references: [id])
 
-  createdAt   DateTime     @default(now())
+  createdAt DateTime @default(now())
 }
 
 // ===================== MATCH ===================== //
@@ -461,6 +466,9 @@ model Match {
 
   // Bracket node (one-to-one)
   bracketNode BracketNode?
+
+  // ➕ ADD THIS: Back relation for MatchStats
+  matchStats MatchStats[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -575,6 +583,32 @@ model BracketNode {
   @@unique([tournamentId, round, nodeIndex])
   @@index([tournamentId])
   @@index([matchId])
+}
+
+model MatchStats {
+  id        String    @id @default(cuid())
+  userId    String
+  matchId   String
+  sportCode SportCode
+  gameType  GameType
+  teamId    String? // For doubles/team sports
+  result    String // "WIN", "LOSS", "DRAW"
+
+  // 🎯 Common stats that apply to ALL sports
+  pointsScored   Int @default(0)
+  pointsConceded Int @default(0)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team  Team? @relation(fields: [teamId], references: [id])
+
+  @@unique([userId, matchId])
+  @@index([userId, sportCode])
+  @@index([sportCode, gameType])
+  @@index([createdAt])
 }
 
 // ===================== EXTRAS ===================== //
