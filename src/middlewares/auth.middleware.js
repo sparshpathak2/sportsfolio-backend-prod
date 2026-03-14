@@ -4,12 +4,23 @@ export const authMiddleware = async (req, res, next) => {
     // ✅ Always allow preflight
     if (req.method === "OPTIONS") return next();
 
+    // ✅ Allow POST to /users/ for user creation
+    // if (req.method === "POST" && req.path.endsWith("/users/")) {
+    //     return next();
+    // }
+
+    // ✅ Allow POST to /users/ exactly
+    if (req.method === "POST" && req.path === "/api/users/") {
+        return next();
+    }
+
     const publicRoutes = [
         "/auth/login",
         "/auth/signup",
         "/auth/request-otp",
         "/auth/verify-otp",
         "/auth/verify-token",
+        // "/users/",
         "/health",
     ];
 

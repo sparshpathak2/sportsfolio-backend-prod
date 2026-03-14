@@ -16,6 +16,7 @@ import sportRoutes from "./modules/sport/sport.routes.js";
 import assetRoutes from "./modules/asset/asset.routes.js";
 import requestRoutes from "./modules/request/request.routes.js";
 import invitationRoutes from "./modules/invitation/invitation.routes.js";
+import statsRoutes from "./modules/stats/badmintonStats/stats.routes.js";
 import { initializeMatchmakingScheduler } from "./modules/scheduler/scheduler.service.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -130,6 +131,7 @@ app.use("/api/locations", locationRoutes);
 app.use("/api/sports", sportRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/invitations", invitationRoutes);
+app.use("/api/stats", statsRoutes);
 
 /* ======================================================
    9️⃣ 404 HANDLER

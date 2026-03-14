@@ -1,6 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import { EngineFactory, MatchProgressionFactory } from "../../domains/EngineFactory.js";
-import { calculateMatchPoints, updatePlayerStatsAfterMatch } from "../stats/stats.service.js";
+import { calculateMatchPoints, updatePlayerStatsAfterMatch } from "../stats/badmintonStats/stats.service.js";
 
 export const startMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
