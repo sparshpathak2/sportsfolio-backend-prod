@@ -130,7 +130,9 @@ model User {
   wonMatchParts  MatchPart[]  @relation("MatchPartWinnerUser")
 
   // ➕ ADD THIS: Back relation for MatchStats
-  matchStats MatchStats[]
+  matchStats   MatchStats[]
+  achievements Achievement[]
+  courtStats   CourtStats[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -144,7 +146,7 @@ model Sport {
 }
 
 model SportProfile {
-  id        String @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
   sportCode SportCode
 
@@ -585,6 +587,8 @@ model BracketNode {
   @@index([matchId])
 }
 
+// ===================== MATCH STATS ===================== //
+
 model MatchStats {
   id        String    @id @default(cuid())
   userId    String
@@ -605,10 +609,224 @@ model MatchStats {
   match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
   team  Team? @relation(fields: [teamId], references: [id])
 
+  // Sport-specific stats in related tables
+  badmintonStats BadmintonMatchStats?
+  cricketStats   CricketMatchStats?
+  footballStats  FootballMatchStats?
+
   @@unique([userId, matchId])
   @@index([userId, sportCode])
   @@index([sportCode, gameType])
   @@index([createdAt])
+}
+
+// ===================== SPORT-SPECIFIC STATS ===================== //
+
+// 🏸 BADMINTON - Deep stats
+model BadmintonMatchStats {
+  id           String     @id @default(cuid())
+  matchStatsId String     @unique
+  matchStats   MatchStats @relation(fields: [matchStatsId], references: [id], onDelete: Cascade)
+
+  // Rally stats
+  totalRallies Int    @default(0)
+  ralliesWon   Int    @default(0)
+  longestRally Int    @default(0) // in seconds
+  averageRally Float? // average rally length
+
+  // Shot distribution
+  smashes  Int @default(0)
+  drops    Int @default(0)
+  clears   Int @default(0)
+  netShots Int @default(0)
+  drives   Int @default(0)
+  lifts    Int @default(0)
+
+  // Serve stats
+  serves      Int @default(0)
+  serveAces   Int @default(0)
+  serveErrors Int @default(0)
+
+  // Winner/Error analysis
+  winners        Int @default(0)
+  unforcedErrors Int @default(0)
+  forcedErrors   Int @default(0)
+
+  // Shot quality
+  forehandShots Int @default(0)
+  backhandShots Int @default(0)
+  overheadShots Int @default(0)
+
+  // Movement
+  distanceCovered Float? // in meters (if tracked)
+
+  // Match flow
+  biggestComeback Int? // Points down then won
+  longestStreak   Int? // Consecutive points won
+}
+
+// 🏏 CRICKET - Deep stats
+model CricketMatchStats {
+  id           String     @id @default(cuid())
+  matchStatsId String     @unique
+  matchStats   MatchStats @relation(fields: [matchStatsId], references: [id], onDelete: Cascade)
+
+  // Batting
+  runs       Int    @default(0)
+  ballsFaced Int    @default(0)
+  fours      Int    @default(0)
+  sixes      Int    @default(0)
+  strikeRate Float?
+  dotBalls   Int    @default(0)
+
+  // Dismissal info
+  dismissalType String? // "BOWLED", "CAUGHT", "LBW", "RUN_OUT", etc.
+  bowlerId      String? // Who got them out
+  fielderId     String? // Who caught them
+
+  // Bowling (if they bowled)
+  overs          Float?
+  maidens        Int    @default(0)
+  runsConceded   Int    @default(0)
+  wickets        Int    @default(0)
+  economy        Float?
+  dotBallsBowled Int    @default(0)
+
+  // Fielding
+  catches   Int @default(0)
+  runOuts   Int @default(0)
+  stumpings Int @default(0)
+
+  // Match impact
+  isPlayerOfMatch Boolean @default(false)
+  matchImpact     Float? // Some impact score
+}
+
+// ⚽ FOOTBALL - Deep stats
+model FootballMatchStats {
+  id           String     @id @default(cuid())
+  matchStatsId String     @unique
+  matchStats   MatchStats @relation(fields: [matchStatsId], references: [id], onDelete: Cascade)
+
+  // Scoring
+  goals        Int @default(0)
+  assists      Int @default(0)
+  penalties    Int @default(0)
+  penaltyGoals Int @default(0)
+  ownGoals     Int @default(0)
+
+  // Shooting
+  shots         Int    @default(0)
+  shotsOnTarget Int    @default(0)
+  shotAccuracy  Float?
+
+  // Passing
+  passes          Int    @default(0)
+  passesCompleted Int    @default(0)
+  passAccuracy    Float?
+  keyPasses       Int    @default(0) // Chances created
+  crosses         Int    @default(0)
+  throughBalls    Int    @default(0)
+
+  // Defense
+  tackles       Int @default(0)
+  tacklesWon    Int @default(0)
+  interceptions Int @default(0)
+  blocks        Int @default(0)
+  clearances    Int @default(0)
+  dribbledPast  Int @default(0)
+
+  // Possession
+  touches      Int @default(0)
+  dispossessed Int @default(0)
+  turnovers    Int @default(0)
+
+  // Duels
+  duels          Int @default(0)
+  duelsWon       Int @default(0)
+  aerialDuels    Int @default(0)
+  aerialDuelsWon Int @default(0)
+
+  // Fouls
+  foulsCommitted Int @default(0)
+  foulsWon       Int @default(0)
+  offsides       Int @default(0)
+
+  // Cards
+  yellowCards Int @default(0)
+  redCards    Int @default(0)
+
+  // Goalkeeper specific
+  saves          Int     @default(0)
+  cleanSheet     Boolean @default(false)
+  goalsConceded  Int     @default(0)
+  savePercentage Float?
+
+  // Physical
+  distanceCovered Float? // in km
+  sprints         Int    @default(0)
+  topSpeed        Float? // in km/h
+}
+
+// ===================== ACHIEVEMENTS & MILESTONES ===================== //
+
+// Track achievements, badges, and streaks
+model Achievement {
+  id        String    @id @default(cuid())
+  userId    String
+  sportCode SportCode
+
+  // Achievement info
+  type        String // "MILESTONE", "STREAK", "BADGE", "TROPHY"
+  name        String // e.g., "Century Club", "Iron Will", "10 Win Streak"
+  description String?
+  tier        String? // "BRONZE", "SILVER", "GOLD", "PLATINUM"
+
+  // Progress tracking
+  progress   Int? // Current progress (e.g., 45/100, current streak: 5)
+  target     Int? // Target for completion (e.g., 100, streak target: 10)
+  unlockedAt DateTime? // When fully unlocked
+
+  // Streak-specific fields (for streak-type achievements)
+  streakType  String? // "WIN_STREAK", "ACTIVITY_STREAK", "CONSECUTIVE_DAYS"
+  streakStart DateTime? // When the streak started
+  streakEnd   DateTime? // Last activity in streak
+  isActive    Boolean? // Whether streak is currently active
+
+  // Display
+  icon      String? // Icon URL or emoji
+  nameHindi String? // Hindi name for localization
+  metadata  Json? // Any additional data
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, sportCode, name])
+  @@index([userId, sportCode, unlockedAt])
+  @@index([userId, sportCode, type])
+  @@index([userId, sportCode, streakType, isActive])
+}
+
+// ===================== LOCATION STATS ===================== //
+
+// Track performance at different venues
+model CourtStats {
+  id         String    @id @default(cuid())
+  userId     String
+  locationId String
+  sportCode  SportCode
+
+  matchesPlayed Int       @default(0)
+  wins          Int       @default(0)
+  losses        Int       @default(0)
+  winRate       Float?
+  lastPlayedAt  DateTime?
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, locationId, sportCode])
+  @@index([userId, sportCode])
 }
 
 // ===================== EXTRAS ===================== //
@@ -643,6 +861,7 @@ model Location {
 
   tournaments Tournament[]
   matches     Match[]
+  courtStats  CourtStats[]
 
   @@unique([name, address], name: "name_address")
 }

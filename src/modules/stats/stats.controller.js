@@ -1,134 +1,134 @@
-export const getPlayerStats = async (req, res) => {
+import * as statsService from "./stats.service.js";
+
+export const getBadmintonOverview = async (req, res) => {
     try {
-        const { userId, sportCode } = req.params;
+        const { userId } = req.params;
+        const { timeRange } = req.query; // 'ALL_TIME', 'THIS_MONTH', 'THIS_WEEK'
 
-        // First try to get from SportProfile
-        let profile = await prisma.sportProfile.findUnique({
-            where: {
-                userId_sportCode: {
-                    userId,
-                    sportCode: sportCode.toUpperCase()
-                }
-            },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        username: true,
-                        profileImage: true
-                    }
-                }
-            }
-        });
-
-        // If no profile, calculate on-the-fly
-        if (!profile) {
-            const matchesPlayed = await prisma.matchParticipant.count({
-                where: { userId }
-            });
-
-            const wins = await prisma.match.count({
-                where: { winnerUserId: userId }
-            });
-
-            profile = {
-                matchesPlayed,
-                wins,
-                losses: matchesPlayed - wins,
-                sportCode
-            };
-        }
-
-        // Get additional stats from relations
-        const tournamentWins = await prisma.tournament.count({
-            where: { winnerUserId: userId }
-        });
-
-        const recentMatches = await prisma.match.findMany({
-            where: {
-                participants: {
-                    some: { userId }
-                },
-                status: "COMPLETED"
-            },
-            orderBy: { completedAt: 'desc' },
-            take: 10,
-            include: {
-                participants: {
-                    include: {
-                        user: {
-                            select: { id: true, name: true }
-                        }
-                    }
-                }
-            }
-        });
+        const stats = await statsService.getBadmintonOverview(userId, timeRange);
 
         res.json({
             success: true,
-            data: {
-                profile,
-                tournamentWins,
-                recentMatches,
-                winRate: profile.matchesPlayed > 0
-                    ? (profile.wins / profile.matchesPlayed * 100).toFixed(1)
-                    : 0
-            }
+            data: stats
         });
     } catch (error) {
-        console.error("Get Stats Error:", error);
-        res.status(400).json({
+        console.error("Get Badminton Overview Error:", error);
+        res.status(500).json({
             success: false,
             message: error.message
         });
     }
 };
 
-// Get stats for all sports for a user
-export const getAllPlayerStats = async (req, res) => {
+export const getBadmintonSingles = async (req, res) => {
     try {
         const { userId } = req.params;
 
-        const profiles = await prisma.sportProfile.findMany({
-            where: { userId },
-            include: {
-                user: {
-                    select: {
-                        id: true,
-                        name: true,
-                        username: true,
-                        profileImage: true
-                    }
-                }
-            }
-        });
-
-        // Group by sport
-        const statsBySport = {};
-        for (const sport of Object.values(SportCode)) {
-            const sportProfiles = profiles.filter(p => p.sportCode === sport);
-
-            // Calculate aggregated stats
-            const matchesPlayed = sportProfiles.reduce((sum, p) => sum + p.matchesPlayed, 0);
-            const wins = sportProfiles.reduce((sum, p) => sum + p.wins, 0);
-
-            statsBySport[sport] = {
-                matchesPlayed,
-                wins,
-                losses: matchesPlayed - wins,
-                profiles: sportProfiles,
-                winRate: matchesPlayed > 0 ? (wins / matchesPlayed * 100).toFixed(1) : 0
-            };
-        }
+        const stats = await statsService.getBadmintonSinglesStats(userId);
 
         res.json({
             success: true,
-            data: statsBySport
+            data: stats
         });
     } catch (error) {
-        console.error("Get All Stats Error:", error);
-        res.status(400).json({
+        console.error("Get Badminton Singles Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+export const getBadmintonDoubles = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const stats = await statsService.getBadmintonDoublesStats(userId);
+
+        res.json({
+            success: true,
+            data: stats
+        });
+    } catch (error) {
+        console.error("Get Badminton Doubles Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+export const getMatchHistory = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { page = 1, limit = 10 } = req.query;
+
+        const history = await statsService.getMatchHistory(userId, parseInt(page), parseInt(limit));
+
+        res.json({
+            success: true,
+            data: history
+        });
+    } catch (error) {
+        console.error("Get Match History Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+export const getAchievements = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const achievements = await statsService.getAchievements(userId);
+
+        res.json({
+            success: true,
+            data: achievements
+        });
+    } catch (error) {
+        console.error("Get Achievements Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+export const getActiveStreaks = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const streaks = await statsService.getActiveStreaks(userId);
+
+        res.json({
+            success: true,
+            data: streaks
+        });
+    } catch (error) {
+        console.error("Get Active Streaks Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+export const getCourtStats = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const courtStats = await statsService.getCourtStats(userId);
+
+        res.json({
+            success: true,
+            data: courtStats
+        });
+    } catch (error) {
+        console.error("Get Court Stats Error:", error);
+        res.status(500).json({
             success: false,
             message: error.message
         });

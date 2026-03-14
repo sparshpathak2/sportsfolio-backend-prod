@@ -1,16 +1,53 @@
 import prisma from "../../lib/prisma.js";
 
-export const createUser = async ({ phone, email, name }) => {
+// export const createUser = async ({ phone, email, name }) => {
+//     if (!phone) throw new Error("PHONE_REQUIRED");
+
+//     const existing = await prisma.user.findFirst({
+//         where: { OR: [{ phone }, { email }] },
+//     });
+
+//     if (existing) throw new Error("USER_ALREADY_EXISTS");
+
+//     return prisma.user.create({
+//         data: { phone, email, name },
+//     });
+// };
+
+export const createUser = async ({ phone, name, email }) => {
     if (!phone) throw new Error("PHONE_REQUIRED");
+    if (!name) throw new Error("NAME_REQUIRED");
+
+    // Build where clause for checking existing user
+    const whereClause = [{ phone }];
+
+    // Only add email to check if it's provided
+    if (email) {
+        whereClause.push({ email });
+    }
 
     const existing = await prisma.user.findFirst({
-        where: { OR: [{ phone }, { email }] },
+        where: { OR: whereClause },
     });
 
-    if (existing) throw new Error("USER_ALREADY_EXISTS");
+    if (existing) {
+        // More specific error message
+        if (existing.phone === phone) {
+            throw new Error("PHONE_ALREADY_EXISTS");
+        }
+        if (email && existing.email === email) {
+            throw new Error("EMAIL_ALREADY_EXISTS");
+        }
+        throw new Error("USER_ALREADY_EXISTS");
+    }
 
+    // Create user with only provided fields
     return prisma.user.create({
-        data: { phone, email, name },
+        data: {
+            phone,
+            name,
+            ...(email && { email }), // Only include email if provided
+        },
     });
 };
 

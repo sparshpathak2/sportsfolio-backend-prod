@@ -1,12 +1,34 @@
 import * as userService from "./user.service.js";
 import prisma from "../../lib/prisma.js";
 
+// export const createUser = async (req, res) => {
+//     try {
+//         const user = await userService.createUser(req.body);
+//         res.status(201).json({ success: true, data: user });
+//     } catch (error) {
+//         res.status(400).json({ success: false, message: error.message });
+//     }
+// };
+
 export const createUser = async (req, res) => {
     try {
-        const user = await userService.createUser(req.body);
-        res.status(201).json({ success: true, data: user });
+        const { phone, name, email } = req.body;
+
+        const user = await userService.createUser({ phone, name, email });
+
+        res.status(201).json({
+            success: true,
+            message: "USER_CREATED_SUCCESSFULLY",
+            data: user
+        });
     } catch (error) {
-        res.status(400).json({ success: false, message: error.message });
+        // Handle specific error codes
+        const status = error.message.includes("EXISTS") ? 409 : 400;
+
+        res.status(status).json({
+            success: false,
+            message: error.message
+        });
     }
 };
 

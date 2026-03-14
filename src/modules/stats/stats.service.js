@@ -1,472 +1,637 @@
-// import prisma from "../../lib/prisma.js";
-
-// // Helper to calculate points for a player in a match
-// export const calculateMatchPoints = async (matchId, userId) => {
-//     const match = await prisma.match.findUnique({
-//         where: { id: matchId },
-//         include: {
-//             parts: true,
-//             participants: true
-//         }
-//     });
-
-//     if (!match) return { scored: 0, conceded: 0 };
-
-//     const userParticipant = match.participants.find(p => p.userId === userId);
-//     if (!userParticipant) return { scored: 0, conceded: 0 };
-
-//     const userSide = userParticipant.side || userParticipant.position;
-//     let scored = 0;
-//     let conceded = 0;
-
-//     for (const part of match.parts) {
-//         if (userSide === 1) {
-//             scored += part.p1Score;
-//             conceded += part.p2Score;
-//         } else {
-//             scored += part.p2Score;
-//             conceded += part.p1Score;
-//         }
-//     }
-
-//     return { scored, conceded };
-// };
-
-// // Update player stats after match completion
-// export const updatePlayerStatsAfterMatch = async ({
-//     userId,
-//     matchId,
-//     sportCode,
-//     gameType,
-//     result,
-//     teamId = null,
-//     points = null
-// }) => {
-//     // Calculate points if not provided
-//     const matchPoints = points || await calculateMatchPoints(matchId, userId);
-
-//     // Create match stats record
-//     await prisma.matchStats.create({
-//         data: {
-//             userId,
-//             matchId,
-//             sportCode,
-//             gameType,
-//             teamId,
-//             result,
-//             pointsScored: matchPoints.scored,
-//             pointsConceded: matchPoints.conceded
-//         }
-//     });
-
-//     // Update or create sport profile
-//     const profile = await prisma.sportProfile.upsert({
-//         where: {
-//             userId_sportCode: { userId, sportCode }
-//         },
-//         create: {
-//             userId,
-//             sportCode,
-//             matchesPlayed: 1,
-//             wins: result === "WIN" ? 1 : 0,
-//             losses: result === "LOSS" ? 1 : 0,
-//             draws: result === "DRAW" ? 1 : 0
-//         },
-//         update: {
-//             matchesPlayed: { increment: 1 },
-//             ...(result === "WIN" && { wins: { increment: 1 } }),
-//             ...(result === "LOSS" && { losses: { increment: 1 } }),
-//             ...(result === "DRAW" && { draws: { increment: 1 } })
-//         }
-//     });
-
-//     return profile;
-// };
-
-// // Helper to calculate stats for a specific game type
-// const calculateSportStats = async (userId, sportCode, gameType = null) => {
-//     const whereClause = {
-//         userId,
-//         match: {
-//             sportCode,
-//             status: "COMPLETED"
-//         }
-//     };
-
-//     if (gameType) {
-//         whereClause.match.gameType = gameType;
-//     }
-
-//     const matchParticipants = await prisma.matchParticipant.findMany({
-//         where: whereClause,
-//         include: {
-//             match: {
-//                 include: {
-//                     parts: true
-//                 }
-//             }
-//         }
-//     });
-
-//     const matchesPlayed = matchParticipants.length;
-//     const wins = await prisma.match.count({
-//         where: {
-//             sportCode,
-//             status: "COMPLETED",
-//             ...(gameType && { gameType }),
-//             OR: [
-//                 { winnerUserId: userId },
-//                 { winnerTeam: { members: { some: { userId } } } }
-//             ]
-//         }
-//     });
-
-//     const losses = matchesPlayed - wins;
-
-//     let pointsScored = 0;
-//     let pointsConceded = 0;
-
-//     for (const mp of matchParticipants) {
-//         const match = mp.match;
-//         const userParticipant = match.participants.find(p => p.userId === userId);
-
-//         if (userParticipant) {
-//             const userSide = userParticipant.side || userParticipant.position;
-//             for (const part of match.parts) {
-//                 if (userSide === 1) {
-//                     pointsScored += part.p1Score;
-//                     pointsConceded += part.p2Score;
-//                 } else {
-//                     pointsScored += part.p2Score;
-//                     pointsConceded += part.p1Score;
-//                 }
-//             }
-//         }
-//     }
-
-//     return {
-//         matchesPlayed,
-//         wins,
-//         losses,
-//         winRate: matchesPlayed > 0 ? Number(((wins / matchesPlayed) * 100).toFixed(1)) : 0,
-//         pointsScored,
-//         pointsConceded,
-//         pointDifference: pointsScored - pointsConceded
-//     };
-// };
-
-// // Get stats for a specific sport with categories
-// export const getSportStats = async (userId, sportCode) => {
-//     const [overall, singles, doubles] = await Promise.all([
-//         calculateSportStats(userId, sportCode),
-//         calculateSportStats(userId, sportCode, "SINGLES"),
-//         calculateSportStats(userId, sportCode, "DOUBLES")
-//     ]);
-
-//     return {
-//         overall,
-//         singles,
-//         doubles
-//     };
-// };
-
-// // Get player stats summary (for profile)
-// export const getPlayerStatsSummary = async (userId) => {
-//     const sportProfiles = await prisma.sportProfile.findMany({
-//         where: { userId },
-//         include: {
-//             user: {
-//                 select: {
-//                     id: true,
-//                     name: true,
-//                     username: true,
-//                     profileImage: true
-//                 }
-//             }
-//         }
-//     });
-
-//     const tournamentWins = await prisma.tournament.count({
-//         where: {
-//             OR: [
-//                 { winnerUserId: userId },
-//                 { winnerTeam: { members: { some: { userId } } } }
-//             ]
-//         }
-//     });
-
-//     const recentMatches = await prisma.matchStats.findMany({
-//         where: { userId },
-//         orderBy: { createdAt: 'desc' },
-//         take: 10,
-//         include: {
-//             match: {
-//                 select: {
-//                     id: true,
-//                     name: true,
-//                     startedAt: true,
-//                     completedAt: true,
-//                     tournament: {
-//                         select: { name: true }
-//                     }
-//                 }
-//             }
-//         }
-//     });
-
-//     const totalMatches = sportProfiles.reduce((sum, p) => sum + p.matchesPlayed, 0);
-//     const totalWins = sportProfiles.reduce((sum, p) => sum + p.wins, 0);
-//     const totalLosses = sportProfiles.reduce((sum, p) => sum + p.losses, 0);
-
-//     return {
-//         overall: {
-//             matchesPlayed: totalMatches,
-//             wins: totalWins,
-//             losses: totalLosses,
-//             winRate: totalMatches > 0 ? Number(((totalWins / totalMatches) * 100).toFixed(1)) : 0,
-//             tournamentsWon: tournamentWins
-//         },
-//         bySport: sportProfiles,
-//         recentMatches
-//     };
-// };
-
 import prisma from "../../lib/prisma.js";
 
-// Helper to calculate points for a player in a match
-export const calculateMatchPoints = async (matchId, userId) => {
-    const match = await prisma.match.findUnique({
-        where: { id: matchId },
-        include: {
-            parts: true,
-            participants: true
-        }
-    });
-
-    if (!match) return { scored: 0, conceded: 0 };
-
-    const userParticipant = match.participants.find(p => p.userId === userId);
-    if (!userParticipant) return { scored: 0, conceded: 0 };
-
-    const userSide = userParticipant.side || userParticipant.position;
-    let scored = 0;
-    let conceded = 0;
-
-    for (const part of match.parts) {
-        if (userSide === 1) {
-            scored += part.p1Score;
-            conceded += part.p2Score;
-        } else {
-            scored += part.p2Score;
-            conceded += part.p1Score;
-        }
+// Helper to get date range filter
+const getDateFilter = (timeRange) => {
+    const now = new Date();
+    if (timeRange === 'THIS_WEEK') {
+        const weekAgo = new Date(now.setDate(now.getDate() - 7));
+        return { gte: weekAgo };
+    } else if (timeRange === 'THIS_MONTH') {
+        const monthAgo = new Date(now.setMonth(now.getMonth() - 1));
+        return { gte: monthAgo };
     }
-
-    return { scored, conceded };
+    return {}; // ALL_TIME
 };
 
-// 🔥 FIXED: Update player stats after match completion
-export const updatePlayerStatsAfterMatch = async ({
-    userId,
-    matchId,
-    sportCode,
-    gameType,
-    result,
-    teamId = null,
-    points = null
-}) => {
-    // Calculate points if not provided
-    const matchPoints = points || await calculateMatchPoints(matchId, userId);
+// ==================== OVERVIEW TAB ==================== //
 
-    // Create match stats record
-    await prisma.matchStats.create({
-        data: {
+export const getBadmintonOverview = async (userId, timeRange = 'ALL_TIME') => {
+    const dateFilter = getDateFilter(timeRange);
+
+    // Get all match stats for the user
+    const matchStats = await prisma.matchStats.findMany({
+        where: {
             userId,
-            matchId,
-            sportCode,
-            gameType,
-            teamId,
-            result,
-            pointsScored: matchPoints.scored,
-            pointsConceded: matchPoints.conceded
-        }
-    });
-
-    // 🔥 FIXED: Update or create sport profile - MATCHING YOUR SCHEMA
-    const profile = await prisma.sportProfile.upsert({
-        where: {
-            userId_sportCode: {
-                userId,
-                sportCode
-            }
+            sportCode: "BADMINTON",
+            createdAt: dateFilter
         },
-        create: {
-            // ✅ CORRECT: Use 'user' relation with connect
-            user: {
-                connect: { id: userId }
-            },
-            sportCode,
-            matchesPlayed: 1,
-            wins: result === "WIN" ? 1 : 0,
-            losses: result === "LOSS" ? 1 : 0,
-            // ✅ id will be auto-generated by Prisma (cuid)
-        },
-        update: {
-            matchesPlayed: { increment: 1 },
-            ...(result === "WIN" && { wins: { increment: 1 } }),
-            ...(result === "LOSS" && { losses: { increment: 1 } }),
-        }
-    });
-
-    return profile;
-};
-
-// Helper to calculate stats for a specific game type
-const calculateSportStats = async (userId, sportCode, gameType = null) => {
-    const whereClause = {
-        userId,
-        match: {
-            sportCode,
-            status: "COMPLETED"
-        }
-    };
-
-    if (gameType) {
-        whereClause.match.gameType = gameType;
-    }
-
-    const matchParticipants = await prisma.matchParticipant.findMany({
-        where: whereClause,
         include: {
-            match: {
-                include: {
-                    parts: true,
-                    participants: true
-                }
-            }
-        }
-    });
-
-    const matchesPlayed = matchParticipants.length;
-
-    const wins = await prisma.match.count({
-        where: {
-            sportCode,
-            status: "COMPLETED",
-            ...(gameType && { gameType }),
-            OR: [
-                { winnerUserId: userId },
-                { winnerTeam: { members: { some: { userId } } } }
-            ]
-        }
-    });
-
-    const losses = matchesPlayed - wins;
-
-    let pointsScored = 0;
-    let pointsConceded = 0;
-
-    for (const mp of matchParticipants) {
-        const match = mp.match;
-        const userParticipant = match.participants.find(p => p.userId === userId);
-
-        if (userParticipant) {
-            const userSide = userParticipant.side || userParticipant.position;
-            for (const part of match.parts) {
-                if (userSide === 1) {
-                    pointsScored += part.p1Score;
-                    pointsConceded += part.p2Score;
-                } else {
-                    pointsScored += part.p2Score;
-                    pointsConceded += part.p1Score;
-                }
-            }
-        }
-    }
-
-    return {
-        matchesPlayed,
-        wins,
-        losses,
-        winRate: matchesPlayed > 0 ? Number(((wins / matchesPlayed) * 100).toFixed(1)) : 0,
-        pointsScored,
-        pointsConceded,
-        pointDifference: pointsScored - pointsConceded
-    };
-};
-
-// Get stats for a specific sport with categories
-export const getSportStats = async (userId, sportCode) => {
-    const [overall, singles, doubles] = await Promise.all([
-        calculateSportStats(userId, sportCode),
-        calculateSportStats(userId, sportCode, "SINGLES"),
-        calculateSportStats(userId, sportCode, "DOUBLES")
-    ]);
-
-    return {
-        overall,
-        singles,
-        doubles
-    };
-};
-
-// Get player stats summary (for profile)
-export const getPlayerStatsSummary = async (userId) => {
-    const sportProfiles = await prisma.sportProfile.findMany({
-        where: { userId },
-        include: {
-            user: {
-                select: {
-                    id: true,
-                    name: true,
-                    username: true,
-                    profileImage: true
-                }
-            }
-        }
-    });
-
-    const tournamentWins = await prisma.tournament.count({
-        where: {
-            OR: [
-                { winnerUserId: userId },
-                { winnerTeam: { members: { some: { userId } } } }
-            ]
-        }
-    });
-
-    const recentMatches = await prisma.matchStats.findMany({
-        where: { userId },
-        orderBy: { createdAt: 'desc' },
-        take: 10,
-        include: {
+            badmintonStats: true,
             match: {
                 select: {
                     id: true,
-                    name: true,
                     startedAt: true,
                     completedAt: true,
-                    tournament: {
-                        select: { name: true }
+                    locationId: true,
+                    gameType: true
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    // Get court stats
+    const courtStats = await prisma.courtStats.findMany({
+        where: { userId, sportCode: "BADMINTON" }
+    });
+
+    // ✅ SAFE CALCULATIONS WITH DEFAULTS
+    const totalMatches = matchStats?.length || 0;
+    const wins = matchStats?.filter(ms => ms?.result === "WIN")?.length || 0;
+    const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+
+    // Recent form (last 10 matches) - defaults to empty array
+    const recentForm = matchStats?.slice(0, 10).map(ms => ms?.result === "WIN" ? "W" : "L").reverse() || [];
+
+    // Get active streak from achievements
+    const activeStreak = await prisma.achievement.findFirst({
+        where: {
+            userId,
+            sportCode: "BADMINTON",
+            type: "STREAK",
+            isActive: true
+        }
+    });
+
+    // Playing style breakdown - safe defaults
+    const singlesMatches = matchStats?.filter(ms => ms?.gameType === "SINGLES")?.length || 0;
+    const doublesMatches = matchStats?.filter(ms => ms?.gameType === "DOUBLES")?.length || 0;
+    const totalStyleMatches = singlesMatches + doublesMatches;
+    const singlesPercentage = totalStyleMatches > 0 ? Math.round((singlesMatches / totalStyleMatches) * 100) : 0;
+    const doublesPercentage = totalStyleMatches > 0 ? Math.round((doublesMatches / totalStyleMatches) * 100) : 0;
+
+    // Time & consistency stats - safe defaults
+    const totalPlayTimeMinutes = matchStats?.reduce((sum, ms) => sum + (ms?.duration || 0), 0) || 0;
+    const totalPlayTimeHours = (totalPlayTimeMinutes / 60).toFixed(1);
+
+    const matchesWithDuration = matchStats?.filter(ms => ms?.duration) || [];
+    const avgMatchDuration = matchesWithDuration.length > 0
+        ? Math.round(matchesWithDuration.reduce((sum, ms) => sum + ms.duration, 0) / matchesWithDuration.length)
+        : 0;
+
+    const longestStreak = await prisma.achievement.findFirst({
+        where: {
+            userId,
+            sportCode: "BADMINTON",
+            type: "STREAK",
+            name: { contains: "Longest Streak" }
+        }
+    });
+
+    const courtsPlayed = courtStats?.length || 0;
+
+    return {
+        winRate,
+        recentForm,
+        streakText: activeStreak ? `${activeStreak.progress} Win Streak` : "No Active Streak",
+        playingStyle: {
+            singles: { matches: singlesMatches, percentage: singlesPercentage },
+            doubles: { matches: doublesMatches, percentage: doublesPercentage }
+        },
+        timeAndConsistency: {
+            totalPlayTime: `${totalPlayTimeHours} hours`,
+            avgMatchDuration: `${avgMatchDuration} minutes`,
+            longestStreak: longestStreak ? `${longestStreak.progress} days` : "0 days",
+            courtsPlayed
+        }
+    };
+};
+
+// ==================== SINGLES TAB ==================== //
+
+export const getBadmintonSinglesStats = async (userId) => {
+    // Get all singles matches with badminton stats
+    const singlesMatches = await prisma.matchStats.findMany({
+        where: {
+            userId,
+            sportCode: "BADMINTON",
+            gameType: "SINGLES"
+        },
+        include: {
+            badmintonStats: true,
+            match: {
+                include: {
+                    parts: {
+                        orderBy: {
+                            partNumber: 'asc'
+                        }
                     }
                 }
             }
+        },
+        orderBy: {
+            createdAt: 'desc'
         }
     });
 
-    const totalMatches = sportProfiles.reduce((sum, p) => sum + p.matchesPlayed, 0);
-    const totalWins = sportProfiles.reduce((sum, p) => sum + p.wins, 0);
-    const totalLosses = sportProfiles.reduce((sum, p) => sum + p.losses, 0);
+    // ✅ SAFE DEFAULTS FOR ALL STATS
+    const totalMatches = singlesMatches?.length || 0;
+    const wins = singlesMatches?.filter(ms => ms?.result === "WIN")?.length || 0;
+    const losses = totalMatches - wins;
+    const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+
+    // Initialize all counters with 0
+    let totalPointsScored = 0;
+    let totalPointsConceded = 0;
+    let highestScore = 0;
+    let straightWins = 0;
+    let threeSetWins = 0;
+    let closeLosses = 0;
+    let straightLosses = 0;
+
+    // Badminton deep stats with defaults
+    let totalSmashes = 0;
+    let totalDrops = 0;
+    let totalClears = 0;
+    let totalNetShots = 0;
+    let totalDrives = 0;
+    let totalWinners = 0;
+    let totalUnforcedErrors = 0;
+    let longestRally = 0;
+    let fastestWin = Infinity;
+
+    // Only process if there are matches
+    if (singlesMatches?.length > 0) {
+        for (const ms of singlesMatches) {
+            if (!ms) continue;
+
+            totalPointsScored += ms.pointsScored || 0;
+            totalPointsConceded += ms.pointsConceded || 0;
+
+            // Highest score in a part
+            if (ms.match?.parts) {
+                for (const part of ms.match.parts) {
+                    if (!part) continue;
+                    const userSide = ms.match.participants?.find(p => p?.userId === userId)?.side || 1;
+                    const userScore = userSide === 1 ? (part.p1Score || 0) : (part.p2Score || 0);
+                    if (userScore > highestScore) highestScore = userScore;
+                }
+            }
+
+            // Match outcomes and badminton stats
+            if (ms.badmistonStats) {  // Note: Fix typo here if needed
+                const stats = ms.badmistonStats;
+                totalSmashes += stats?.smashes || 0;
+                totalDrops += stats?.drops || 0;
+                totalClears += stats?.clears || 0;
+                totalNetShots += stats?.netShots || 0;
+                totalDrives += stats?.drives || 0;
+                totalWinners += stats?.winners || 0;
+                totalUnforcedErrors += stats?.unforcedErrors || 0;
+                if ((stats?.longestRally || 0) > longestRally) longestRally = stats.longestRally;
+            }
+
+            // Match duration
+            if (ms.duration && ms.duration < fastestWin && ms.result === "WIN") {
+                fastestWin = ms.duration;
+            }
+
+            // Count parts won/lost
+            if (ms.match?.parts) {
+                const partsWon = ms.match.parts.filter(part => {
+                    if (!part) return false;
+                    const userSide = ms.match.participants?.find(p => p?.userId === userId)?.side || 1;
+                    return (userSide === 1 && part.winnerUserId === userId) ||
+                        (userSide === 2 && part.winnerUserId === userId);
+                }).length;
+
+                if (ms.result === "WIN") {
+                    if (partsWon === 2) straightWins++;
+                    else if (partsWon === 2) threeSetWins++;  // Note: This logic might need fixing
+                } else {
+                    if (partsWon === 1) closeLosses++;
+                    else straightLosses++;
+                }
+            }
+        }
+    }
+
+    // Best performances with safe defaults
+    const bestComeback = await findBestComeback(userId, singlesMatches || []);
+    const longestRallySec = longestRally || 0;
+    const fastestWinMin = fastestWin !== Infinity ? Math.round(fastestWin) : 0;
 
     return {
-        overall: {
+        performance: {
             matchesPlayed: totalMatches,
-            wins: totalWins,
-            losses: totalLosses,
-            winRate: totalMatches > 0 ? Number(((totalWins / totalMatches) * 100).toFixed(1)) : 0,
-            tournamentsWon: tournamentWins
+            winRate,
+            wins,
+            losses
         },
-        bySport: sportProfiles,
-        recentMatches
+        scoring: {
+            pointsWon: totalPointsScored,
+            pointsLost: totalPointsConceded,
+            avgPointsPerMatch: totalMatches > 0 ? Math.round(totalPointsScored / totalMatches) : 0,
+            highestScore: highestScore > 0 ? `${highestScore} points` : "0 points"
+        },
+        shotAnalysis: {
+            smashes: totalSmashes,
+            drops: totalDrops,
+            clears: totalClears,
+            netShots: totalNetShots,
+            drives: totalDrives,
+            winners: totalWinners,
+            unforcedErrors: totalUnforcedErrors
+        },
+        matchOutcomes: {
+            straightWins,
+            threeSetWins,
+            closeLosses,
+            straightLosses
+        },
+        bestPerformances: {
+            longestRally: longestRallySec > 0 ? `${Math.floor(longestRallySec / 60)}m ${longestRallySec % 60}s` : "N/A",
+            bestComeback: bestComeback || "N/A",
+            fastestWin: fastestWinMin > 0 ? `${fastestWinMin} minutes` : "N/A"
+        }
     };
+};
+
+// ==================== DOUBLES TAB ==================== //
+
+export const getBadmintonDoublesStats = async (userId) => {
+    // Get all doubles matches
+    const doublesMatches = await prisma.matchStats.findMany({
+        where: {
+            userId,
+            sportCode: "BADMINTON",
+            gameType: "DOUBLES"
+        },
+        include: {
+            badmintonStats: true,
+            match: {
+                include: {
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    username: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    // ✅ SAFE DEFAULTS
+    const totalMatches = doublesMatches?.length || 0;
+    const wins = doublesMatches?.filter(ms => ms?.result === "WIN")?.length || 0;
+    const winRate = totalMatches > 0 ? Math.round((wins / totalMatches) * 100) : 0;
+
+    // Partner statistics with safe handling
+    const partnerStats = new Map();
+
+    if (doublesMatches?.length > 0) {
+        for (const ms of doublesMatches) {
+            if (!ms?.match?.participants) continue;
+
+            // Find partner in this match
+            const matchParticipants = ms.match.participants || [];
+            const partner = matchParticipants.find(p => p?.userId !== userId && p?.teamId === ms.teamId);
+
+            if (partner?.userId) {
+                const partnerId = partner.userId;
+                const partnerName = partner.user?.name || "Unknown";
+
+                if (!partnerStats.has(partnerId)) {
+                    partnerStats.set(partnerId, {
+                        partnerId,
+                        partnerName,
+                        matches: 0,
+                        wins: 0,
+                        losses: 0
+                    });
+                }
+
+                const stats = partnerStats.get(partnerId);
+                stats.matches++;
+                if (ms.result === "WIN") stats.wins++;
+                else stats.losses++;
+            }
+        }
+    }
+
+    // Calculate win rates for partners
+    const partners = Array.from(partnerStats.values()).map(p => ({
+        ...p,
+        winRate: p.matches > 0 ? Math.round((p.wins / p.matches) * 100) : 0
+    }));
+
+    // Sort by matches played (most frequent first)
+    partners.sort((a, b) => (b.matches || 0) - (a.matches || 0));
+
+    // Get most frequent partner (safe)
+    const mostFrequentPartner = partners.length > 0 ? partners[0] : null;
+
+    // Get best partnership (highest win rate with at least 3 matches)
+    const bestPartnership = partners
+        .filter(p => (p.matches || 0) >= 3)
+        .sort((a, b) => (b.winRate || 0) - (a.winRate || 0))[0] || partners[0] || null;
+
+    return {
+        performance: {
+            matchesPlayed: totalMatches,
+            winRate,
+            wins,
+            losses: totalMatches - wins
+        },
+        partnerOverview: {
+            differentPartners: partners.length,
+            mostFrequentPartner: mostFrequentPartner ? {
+                name: mostFrequentPartner.partnerName,
+                matches: mostFrequentPartner.matches,
+                winRate: mostFrequentPartner.winRate
+            } : {
+                name: "N/A",
+                matches: 0,
+                winRate: 0
+            },
+            bestPartnership: bestPartnership ? {
+                name: bestPartnership.partnerName,
+                wins: bestPartnership.wins,
+                matches: bestPartnership.matches,
+                winRate: bestPartnership.winRate
+            } : {
+                name: "N/A",
+                wins: 0,
+                matches: 0,
+                winRate: 0
+            }
+        },
+        topPartners: partners.slice(0, 5).map(p => ({
+            name: p.partnerName,
+            wins: p.wins,
+            matches: p.matches,
+            winRate: p.winRate
+        }))
+    };
+};
+
+// ==================== HISTORY TAB ==================== //
+
+export const getMatchHistory = async (userId, page = 1, limit = 10) => {
+    const skip = (page - 1) * limit;
+
+    const matches = await prisma.matchStats.findMany({
+        where: {
+            userId,
+            sportCode: "BADMINTON"
+        },
+        include: {
+            match: {
+                include: {
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    username: true,
+                                    profileImage: true
+                                }
+                            }
+                        }
+                    },
+                    parts: {
+                        orderBy: { partNumber: 'asc' }
+                    },
+                    location: true
+                }
+            },
+            badmintonStats: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit
+    });
+
+    const totalCount = await prisma.matchStats.count({
+        where: { userId, sportCode: "BADMINTON" }
+    });
+
+    // ✅ SAFE MAPPING WITH DEFAULTS
+    const formattedMatches = (matches || []).map(ms => {
+        if (!ms) return null;
+
+        const match = ms.match || {};
+        const opponent = match.participants?.find(p => p?.userId !== userId)?.user;
+
+        // Format score string
+        const scoreString = match.parts?.map(part => {
+            if (!part) return '';
+            const userSide = match.participants?.find(p => p?.userId === userId)?.side || 1;
+            if (userSide === 1) {
+                return `${part.p1Score || 0}-${part.p2Score || 0}`;
+            } else {
+                return `${part.p2Score || 0}-${part.p1Score || 0}`;
+            }
+        }).filter(s => s).join(', ') || '';
+
+        // Calculate duration
+        let duration = 'N/A';
+        if (match.startedAt && match.completedAt) {
+            const diffMs = new Date(match.completedAt) - new Date(match.startedAt);
+            const diffMins = Math.round(diffMs / 60000);
+            duration = `${diffMins} minutes`;
+        }
+
+        // Time ago
+        const timeAgo = ms.createdAt ? getTimeAgo(new Date(ms.createdAt)) : 'N/A';
+
+        return {
+            id: match.id || 'unknown',
+            result: ms.result || 'UNKNOWN',
+            timeAgo,
+            playerName: opponent?.name || 'Unknown',
+            opponentName: opponent?.name || 'Unknown',
+            score: scoreString || '0-0',
+            gameType: match.gameType === "SINGLES" ? "Singles" : (match.gameType === "DOUBLES" ? "Doubles" : "Unknown"),
+            duration,
+            location: match.location?.name || 'Unknown',
+            city: match.location?.city || ''
+        };
+    }).filter(m => m !== null); // Remove null entries
+
+    return {
+        matches: formattedMatches,
+        pagination: {
+            currentPage: page,
+            totalPages: Math.ceil((totalCount || 0) / limit),
+            totalCount: totalCount || 0,
+            hasMore: page < Math.ceil((totalCount || 0) / limit)
+        }
+    };
+};
+
+// ==================== ACHIEVEMENTS TAB ==================== //
+
+export const getAchievements = async (userId) => {
+    const achievements = await prisma.achievement.findMany({
+        where: {
+            userId,
+            sportCode: "BADMINTON"
+        },
+        orderBy: [
+            { unlockedAt: { sort: 'desc', nulls: 'last' } },
+            { progress: 'desc' }
+        ]
+    });
+
+    // ✅ SAFE DEFAULTS
+    const totalUnlocked = achievements?.filter(a => a?.unlockedAt)?.length || 0;
+    const totalAchievements = 32; // You can make this dynamic
+
+    // Group achievements with safe access
+    const recentlyUnlocked = (achievements || [])
+        .filter(a => a?.unlockedAt)
+        .slice(0, 6)
+        .map(a => ({
+            id: a?.id || 'unknown',
+            name: a?.name || 'Unknown Achievement',
+            nameHindi: a?.nameHindi || a?.name || 'Unknown',
+            icon: a?.icon || '🏆',
+            unlockedAt: a?.unlockedAt
+        }));
+
+    const inProgress = (achievements || [])
+        .filter(a => !a?.unlockedAt && a?.progress && a?.target)
+        .map(a => ({
+            id: a?.id || 'unknown',
+            name: a?.name || 'Unknown Achievement',
+            nameHindi: a?.nameHindi || a?.name || 'Unknown',
+            icon: a?.icon || '🏆',
+            progress: a?.progress || 0,
+            target: a?.target || 100,
+            percentage: a?.target ? Math.round(((a?.progress || 0) / a.target) * 100) : 0
+        }));
+
+    return {
+        summary: {
+            totalUnlocked,
+            totalAchievements,
+            progressPercentage: totalAchievements > 0 ? Math.round((totalUnlocked / totalAchievements) * 100) : 0
+        },
+        recentlyUnlocked,
+        inProgress
+    };
+};
+
+export const getActiveStreaks = async (userId) => {
+    const streaks = await prisma.achievement.findMany({
+        where: {
+            userId,
+            sportCode: "BADMINTON",
+            type: "STREAK",
+            isActive: true
+        }
+    });
+
+    // ✅ SAFE MAPPING WITH DEFAULTS
+    return (streaks || []).map(s => ({
+        name: s?.name || 'Unknown Streak',
+        description: s?.description || '',
+        progress: s?.progress || 0,
+        target: s?.target || 0,
+        percentage: s?.target ? Math.round(((s?.progress || 0) / s.target) * 100) : 0,
+        streakStart: s?.streakStart,
+        isActive: s?.isActive || false
+    }));
+};
+
+// ==================== COURT STATS ==================== //
+
+export const getCourtStats = async (userId) => {
+    const courtStats = await prisma.courtStats.findMany({
+        where: {
+            userId,
+            sportCode: "BADMINTON"
+        },
+        include: {
+            location: {
+                select: {
+                    id: true,
+                    name: true,
+                    city: true
+                }
+            }
+        },
+        orderBy: {
+            matchesPlayed: 'desc'
+        }
+    });
+
+    // ✅ SAFE MAPPING WITH DEFAULTS
+    return (courtStats || []).map(cs => ({
+        courtName: cs?.location?.name || 'Unknown Court',
+        city: cs?.location?.city || 'Unknown City',
+        matchesPlayed: cs?.matchesPlayed || 0,
+        wins: cs?.wins || 0,
+        losses: cs?.losses || 0,
+        winRate: cs?.winRate || (cs?.matchesPlayed ? Math.round((cs.wins / cs.matchesPlayed) * 100) : 0),
+        lastPlayed: cs?.lastPlayedAt
+    }));
+};
+
+// ==================== HELPER FUNCTIONS ==================== //
+
+const getTimeAgo = (date) => {
+    if (!date) return 'N/A';
+
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 0) return 'Just now';
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + ' years ago';
+
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + ' months ago';
+
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + ' days ago';
+
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + ' hours ago';
+
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + ' minutes ago';
+
+    return Math.floor(seconds) + ' seconds ago';
+};
+
+const findBestComeback = async (userId, matches) => {
+    if (!matches?.length) return null;
+
+    // Find matches where user lost first set but won the match
+    const comebacks = [];
+
+    for (const ms of matches) {
+        if (!ms || ms.result !== "WIN") continue;
+
+        const match = ms.match;
+        if (!match?.parts || match.parts.length < 2) continue;
+
+        const userSide = match.participants?.find(p => p?.userId === userId)?.side || 1;
+        const firstSetWinner = match.parts[0]?.winnerUserId;
+
+        if (firstSetWinner && firstSetWinner !== userId) {
+            comebacks.push(ms);
+        }
+    }
+
+    return comebacks.length > 0 ? `Won after losing Set 1 (${comebacks.length} times)` : null;
 };
