@@ -134,3 +134,167 @@ export const getCourtStats = async (req, res) => {
         });
     }
 };
+
+// export const getAllBadmintonStats = async (req, res) => {
+//     try {
+//         const { userId } = req.params;
+//         const { timeRange, page = 1, limit = 10 } = req.query;
+
+//         // Run all stats queries in parallel for better performance
+//         const [overview, singles, doubles, achievements, streaks, courts, history] = await Promise.all([
+//             statsService.getBadmintonOverview(userId, timeRange),
+//             statsService.getBadmintonSinglesStats(userId),
+//             statsService.getBadmintonDoublesStats(userId),
+//             statsService.getAchievements(userId),
+//             statsService.getActiveStreaks(userId),
+//             statsService.getCourtStats(userId),
+//             statsService.getMatchHistory(userId, parseInt(page), parseInt(limit))
+//         ]);
+
+//         res.json({
+//             success: true,
+//             data: {
+//                 overview,
+//                 singles,
+//                 doubles,
+//                 achievements,
+//                 streaks,
+//                 courts,
+//                 history
+//             }
+//         });
+//     } catch (error) {
+//         console.error("Get All Badminton Stats Error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// };
+
+// export const getAllBadmintonStats = async (req, res) => {
+//     try {
+//         const { userId } = req.params;
+//         const { timeRange, page = 1, limit = 10 } = req.query;
+
+//         // Run all stats queries in parallel
+//         const [
+//             overview,
+//             singles,
+//             doubles,
+//             achievements,
+//             streaks,
+//             courts,
+//             history,
+//             highLevelStats,        // 🆕 From profile
+//             tournamentAchievements  // 🆕 From profile
+//         ] = await Promise.all([
+//             statsService.getBadmintonOverview(userId, timeRange),
+//             statsService.getBadmintonSinglesStats(userId),
+//             statsService.getBadmintonDoublesStats(userId),
+//             statsService.getAchievements(userId),
+//             statsService.getActiveStreaks(userId),
+//             statsService.getCourtStats(userId),
+//             statsService.getMatchHistory(userId, parseInt(page), parseInt(limit)),
+//             statsService.getHighLevelSportStats(userId, "BADMINTON"),
+//             statsService.getSportTournamentAchievements(userId, "BADMINTON")
+//         ]);
+
+//         res.json({
+//             success: true,
+//             data: {
+//                 // High-level stats (from profile)
+//                 highLevel: {
+//                     stats: highLevelStats,
+//                     achievements: tournamentAchievements
+//                 },
+//                 // Deep stats (from stats module)
+//                 overview,
+//                 singles,
+//                 doubles,
+//                 achievements: {
+//                     ...achievements,
+//                     tournamentAchievements // Merge if needed
+//                 },
+//                 streaks,
+//                 courts,
+//                 history
+//             }
+//         });
+//     } catch (error) {
+//         console.error("Get All Badminton Stats Error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: error.message
+//         });
+//     }
+// };
+
+
+export const getAllBadmintonStats = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { timeRange, page = 1, limit = 10 } = req.query;
+
+        // Run all stats queries in parallel
+        const [
+            summaryStats,        // High-level aggregated stats (from profile)
+            summaryAchievements, // Tournament wins (from profile)
+            overviewTab,
+            singlesTab,
+            doublesTab,
+            achievementsTab,
+            streaksTab,
+            courtsTab,
+            historyTab
+        ] = await Promise.all([
+            statsService.getHighLevelSportStats(userId, "BADMINTON"),
+            statsService.getSportTournamentAchievements(userId, "BADMINTON"),
+            statsService.getBadmintonOverview(userId, timeRange),
+            statsService.getBadmintonSinglesStats(userId),
+            statsService.getBadmintonDoublesStats(userId),
+            statsService.getAchievements(userId),
+            statsService.getActiveStreaks(userId),
+            statsService.getCourtStats(userId),
+            statsService.getMatchHistory(userId, parseInt(page), parseInt(limit))
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                // 🏆 SUMMARY - High-level, at-a-glance stats
+                summary: {
+                    stats: summaryStats,
+                    achievements: summaryAchievements,
+                    // Add key metrics from overview that make sense at summary level
+                    quickStats: {
+                        totalMatches: overviewTab?.playingStyle?.singles?.matches + overviewTab?.playingStyle?.doubles?.matches || 0,
+                        winRate: overviewTab?.winRate || 0,
+                        currentStreak: overviewTab?.streakText || "No Active Streak",
+                        courtsPlayed: overviewTab?.timeAndConsistency?.courtsPlayed || 0
+                    }
+                },
+
+                // 📊 DETAILED - Deep dive stats for each tab
+                detailed: {
+                    overview: overviewTab,
+                    singles: singlesTab,
+                    doubles: doublesTab,
+                    achievements: {
+                        ...achievementsTab,
+                        tournamentAchievements: summaryAchievements
+                    },
+                    streaks: streaksTab,
+                    courts: courtsTab,
+                    history: historyTab
+                }
+            }
+        });
+    } catch (error) {
+        console.error("Get All Badminton Stats Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+};

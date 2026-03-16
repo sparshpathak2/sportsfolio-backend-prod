@@ -734,3 +734,116 @@ const findBestComeback = async (userId, matches) => {
 
     return comebacks.length > 0 ? `Won after losing Set 1 (${comebacks.length} times)` : null;
 };
+
+
+// Add this to your stats.service.js (reusing from profile.service.js)
+
+// Reusable function to get high-level sport stats (matches played, wins, etc.)
+export const getHighLevelSportStats = async (userId, sportCode) => {
+    // Reuse the getSportStats function from profile service
+    // You might want to move this to a shared utils file
+    const calculateSportStats = async (userId, sportCode, gameType = null) => {
+        const whereClause = {
+            userId,
+            match: {
+                sportCode,
+                status: "COMPLETED"
+            }
+        };
+
+        if (gameType) {
+            whereClause.match.gameType = gameType;
+        }
+
+        const matchParticipants = await prisma.matchParticipant.findMany({
+            where: whereClause,
+            include: {
+                match: {
+                    include: {
+                        parts: true,
+                        participants: true
+                    }
+                }
+            }
+        });
+
+        const matchesPlayed = matchParticipants.length;
+        const wins = await prisma.match.count({
+            where: {
+                sportCode,
+                status: "COMPLETED",
+                ...(gameType && { gameType }),
+                OR: [
+                    { winnerUserId: userId },
+                    { winnerTeam: { members: { some: { userId } } } }
+                ]
+            }
+        });
+
+        const losses = matchesPlayed - wins;
+        let pointsScored = 0;
+        let pointsConceded = 0;
+
+        for (const mp of matchParticipants) {
+            const match = mp.match;
+            const userParticipant = match.participants.find(p => p.userId === userId);
+            if (userParticipant) {
+                const userSide = userParticipant.side || userParticipant.position;
+                for (const part of match.parts) {
+                    if (userSide === 1) {
+                        pointsScored += part.p1Score;
+                        pointsConceded += part.p2Score;
+                    } else {
+                        pointsScored += part.p2Score;
+                        pointsConceded += part.p1Score;
+                    }
+                }
+            }
+        }
+
+        return {
+            matchesPlayed,
+            wins,
+            losses,
+            winRate: matchesPlayed > 0 ? Number(((wins / matchesPlayed) * 100).toFixed(1)) : 0,
+            pointsScored,
+            pointsConceded,
+            pointDifference: pointsScored - pointsConceded
+        };
+    };
+
+    const [overall, singles, doubles] = await Promise.all([
+        calculateSportStats(userId, sportCode),
+        calculateSportStats(userId, sportCode, "SINGLES"),
+        calculateSportStats(userId, sportCode, "DOUBLES")
+    ]);
+
+    return { overall, singles, doubles };
+};
+
+// Also get tournament achievements for the sport
+export const getSportTournamentAchievements = async (userId, sportCode) => {
+    const wonTournaments = await prisma.tournament.findMany({
+        where: {
+            status: "COMPLETED",
+            OR: [
+                { winnerUserId: userId },
+                { winnerTeam: { members: { some: { userId } } } }
+            ],
+            sportCode
+        },
+        select: {
+            id: true,
+            name: true,
+            sportCode: true,
+            tournamentType: true,
+            startDate: true,
+            endDate: true
+        }
+    });
+
+    return {
+        tournamentsWon: wonTournaments,
+        tournamentWins: wonTournaments.length
+    };
+};

@@ -24,4 +24,7 @@ router.get("/badminton/:userId/streaks", statsController.getActiveStreaks);
 // GET /stats/badminton/:userId/courts
 router.get("/badminton/:userId/courts", statsController.getCourtStats);
 
+// 🆕 NEW: GET /stats/badminton/:userId/all
+router.get("/badminton/:userId/all", statsController.getAllBadmintonStats);
+
 export default router;
