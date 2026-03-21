@@ -1,5 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import { TeamMemberRole } from "@prisma/client";
+import { sendNotification, sendMulticastNotification } from "../../utils/notification.utils.js";
 
 const generateTempTeamName = () => {
     const now = new Date();
@@ -233,7 +234,7 @@ export const createInvitation = async ({
     /* ======================================================
        CREATE INVITATION
        ====================================================== */
-    return prisma.invitation.create({
+    const invitation = await prisma.invitation.create({
         data: {
             type,
             playerId: type === "PLAYER" ? playerId : playerId ?? null,
@@ -244,6 +245,69 @@ export const createInvitation = async ({
             status: "PENDING",
         },
     });
+
+    /* ======================================================
+       SEND PUSH NOTIFICATION
+       ====================================================== */
+    try {
+        let screenName = "invitations";
+        if (tournamentId) screenName = "tournament_invitation";
+        else if (matchId) screenName = "match_invitation";
+        else if (targetTeamId) screenName = "team_invitation";
+
+        const notifPayload = { invitationId: invitation.id, type, screenName };
+
+        if (type === "PLAYER" && playerId) {
+            // Determine notification context
+            let title = "You have a new invitation";
+            let body = "You have been invited";
+
+            if (tournamentId) {
+                body = "You have been invited to join a tournament";
+            } else if (matchId) {
+                body = "You have been invited to join a match";
+            } else if (targetTeamId) {
+                body = "You have been invited to join a team";
+            }
+
+            const player = await prisma.user.findUnique({
+                where: { id: playerId },
+                select: { fcmToken: true },
+            });
+
+            if (player?.fcmToken) {
+                await sendNotification(player.fcmToken, title, body, notifPayload);
+            }
+        }
+
+        if (type === "TEAM" && teamId) {
+            const title = "Team Invitation";
+            const body = "Your team has been invited to join a tournament";
+
+            const admins = await prisma.teamMember.findMany({
+                where: {
+                    teamId,
+                    role: { in: ["OWNER", "MANAGER", "CAPTAIN"] },
+                },
+                include: {
+                    user: { select: { fcmToken: true } },
+                },
+            });
+
+            const tokens = admins
+                .map(m => m.user?.fcmToken)
+                .filter(Boolean);
+
+            if (tokens.length > 0) {
+                await sendMulticastNotification(tokens, title, body, notifPayload);
+            }
+        }
+    } catch (notifError) {
+        // Notification failure must not block invitation creation
+        console.error("🔕 Notification send failed (non-critical):", notifError.message);
+    }
+
+    return invitation;
 };
 
 

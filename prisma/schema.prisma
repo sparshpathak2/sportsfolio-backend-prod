@@ -107,6 +107,7 @@ model User {
   name         String?
   city         String?
   profileImage String?
+  fcmToken     String?
 
   // organizedTournaments Tournament[]   @relation("TournamentOrganizer")
   sportProfiles        SportProfile[]

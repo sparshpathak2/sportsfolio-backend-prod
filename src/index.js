@@ -18,6 +18,7 @@ import invitationRoutes from "./modules/invitation/invitation.routes.js";
 import statsRoutes from "./modules/stats/badmintonStats/stats.routes.js";
 import personnelRoutes from "./modules/personnel/personnel.routes.js";
 import favoriteRoutes from "./modules/favorite/favorite.routes.js"
+import testRoutes from "./modules/test/test.routes.js";
 import { initializeMatchmakingScheduler } from "./modules/scheduler/scheduler.service.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -134,6 +135,7 @@ app.use("/api/requests", requestRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/personnel", personnelRoutes);
+app.use("/api/test", testRoutes);
 
 /* ======================================================
    9️⃣ 404 HANDLER
@@ -167,22 +169,22 @@ app.use((err, req, res, next) => {
 /* ======================================================
    🚀 START SERVER WITH SCHEDULER
    ====================================================== */
-// const server = app.listen(PORT, "127.0.0.1", () => {
-//     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
+server.listen(PORT, "0.0.0.0", () => {
+    console.log(`🚀 Backend running on http://0.0.0.0:${PORT}`);
 
-//     // ✅ INITIALIZE MATCHMAKING SCHEDULER
-//     try {
-//         initializeMatchmakingScheduler();
-//         console.log(`⏰ Matchmaking scheduler initialized and running`);
-//     } catch (error) {
-//         console.error(`❌ Failed to initialize matchmaking scheduler:`, error.message);
-//     }
-// });
+    // ✅ INITIALIZE MATCHMAKING SCHEDULER
+    try {
+        initializeMatchmakingScheduler();
+        console.log(`⏰ Matchmaking scheduler initialized and running`);
+    } catch (error) {
+        console.error(`❌ Failed to initialize matchmaking scheduler:`, error.message);
+    }
+});
 
 /* ======================================================
    🚀 START SERVER WITH SOCKET.IO
    ====================================================== */
-server.listen(PORT, "127.0.0.1", () => {
+server.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
     console.log(`🔌 Socket.IO server running on ws://127.0.0.1:${PORT}`);
 

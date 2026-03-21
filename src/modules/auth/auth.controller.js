@@ -59,7 +59,7 @@ import { FIREBASE_API_KEY, verifyIdToken } from "../../lib/firebase.js";
 // Firebase otp Request
 
 export const requestOtp = async (req, res) => {
-    const { phone } = req.body
+    const { phone, fcmToken } = req.body
 
     // console.log("req.body at requestOtp:", req.body)
 
@@ -73,7 +73,12 @@ export const requestOtp = async (req, res) => {
 
     if (!user) {
         user = await prisma.user.create({
-            data: { phone }
+            data: { phone, ...(fcmToken && { fcmToken }) }
+        })
+    } else if (fcmToken) {
+        user = await prisma.user.update({
+            where: { phone },
+            data: { fcmToken },
         })
     }
 
@@ -85,7 +90,7 @@ export const requestOtp = async (req, res) => {
                 phoneNumber: phone,
                 // recaptchaToken: "optional" // Add if needed for production
             }
-        );
+        ); 
 
         const sessionInfo = response.data.sessionInfo;
 

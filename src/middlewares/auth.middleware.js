@@ -18,10 +18,11 @@ export const authMiddleware = async (req, res, next) => {
         "/auth/login",
         "/auth/signup",
         "/auth/request-otp",
-        "/auth/verify-otp",
+        "/auth/verify-otp", 
         "/auth/verify-token",
         // "/users/",
         "/health",
+        "/test/notification",
     ];
 
     if (publicRoutes.some(route => req.path.endsWith(route))) {
