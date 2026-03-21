@@ -7,7 +7,6 @@ import { authMiddleware } from "./middlewares/auth.middleware.js";
 import userRoutes from "./modules/user/user.routes.js";
 import authRoutes from "./modules/auth/auth.routes.js";
 import profileRoutes from "./modules/profile/profile.routes.js";
-// import favouriteRoutes from "./modules/favourite/favourite.routes.js";
 import teamRoutes from "./modules/team/team.routes.js";
 import tournamentRoutes from "./modules/tournament/tournament.routes.js";
 import matchRoutes from "./modules/match/match.routes.js";
@@ -17,6 +16,8 @@ import assetRoutes from "./modules/asset/asset.routes.js";
 import requestRoutes from "./modules/request/request.routes.js";
 import invitationRoutes from "./modules/invitation/invitation.routes.js";
 import statsRoutes from "./modules/stats/badmintonStats/stats.routes.js";
+import personnelRoutes from "./modules/personnel/personnel.routes.js";
+import favoriteRoutes from "./modules/favorite/favorite.routes.js"
 import { initializeMatchmakingScheduler } from "./modules/scheduler/scheduler.service.js";
 import { createServer } from "http";
 import { Server } from "socket.io";
@@ -123,7 +124,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/profiles", profileRoutes);
 app.use("/api/assets", assetRoutes);
-// app.use("/api/favourites", favouriteRoutes);
+app.use("/api/favorites", favoriteRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/tournaments", tournamentRoutes);
 app.use("/api/matches", matchRoutes);
@@ -132,6 +133,7 @@ app.use("/api/sports", sportRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/personnel", personnelRoutes);
 
 /* ======================================================
    9️⃣ 404 HANDLER

@@ -108,7 +108,7 @@ model User {
   city         String?
   profileImage String?
 
-  organizedTournaments Tournament[]   @relation("TournamentOrganizer")
+  // organizedTournaments Tournament[]   @relation("TournamentOrganizer")
   sportProfiles        SportProfile[]
   sessions             Session[]
 
@@ -118,7 +118,7 @@ model User {
   favoriteUsers    FavoriteUser[] @relation("UserFavorites")
   favoritedByUsers FavoriteUser[] @relation("UserFavoritedBy")
 
-  officiatedMatches        Match[]                 @relation("MatchOfficial")
+  // officiatedMatches        Match[]                 @relation("MatchOfficial")
   tournamentParticipations TournamentParticipant[] @relation("PlayerParticipation")
   invitations              Invitation[]
   matchParticipations      MatchParticipant[]
@@ -128,6 +128,13 @@ model User {
   wonMatches     Match[]      @relation("MatchWinnerUser")
   wonTournaments Tournament[] @relation("TournamentWinnerUser")
   wonMatchParts  MatchPart[]  @relation("MatchPartWinnerUser")
+
+  // ✅ ADD THESE TWO MISSING RELATIONS:
+  // tournamentOrganizers TournamentOrganizer[]
+  // matchOfficials       MatchOfficial[]
+
+  // Add this new relation instead:
+  personnel Personnel[] // All tournament/match roles in one place
 
   // ➕ ADD THIS: Back relation for MatchStats
   matchStats   MatchStats[]
@@ -319,8 +326,18 @@ model Tournament {
   banner String?
   city   String?
 
-  organizerId String?
-  organizer   User?   @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+  // organizerId String?
+  // organizer   User?   @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+
+  // Keep for backward compatibility (single organizer)
+  // organizerId String?
+  // organizer   User?   @relation("TournamentOrganizer", fields: [organizerId], references: [id])
+  
+  // 🆕 NEW: Multiple organizers
+  // organizers TournamentOrganizer[]
+
+  // Add this new relation:
+  // personnel Personnel[] // All personnel for this tournament
 
   locations Location[]
 
@@ -430,8 +447,18 @@ model Match {
   startedAt   DateTime?
   completedAt DateTime?
 
-  officialUserId String?
-  official       User?   @relation("MatchOfficial", fields: [officialUserId], references: [id])
+  // officialUserId String?
+  // official       User?   @relation("MatchOfficial", fields: [officialUserId], references: [id])
+
+  // Keep for backward compatibility (single official)
+  // officialUserId String?
+  // official       User?   @relation("MatchOfficial", fields: [officialUserId], references: [id])
+  
+  // 🆕 NEW: Multiple officials
+  // officials MatchOfficial[]
+
+  // Add this new relation:
+  // personnel Personnel[] // All personnel for this match
 
   // ✅ Match-scoped participants
   servingParticipantId String?           @unique
@@ -586,6 +613,34 @@ model BracketNode {
   @@index([tournamentId])
   @@index([matchId])
 }
+
+// ===================== PERSONNEL (Single Table for ALL) ===================== //
+
+model Personnel {
+  id         String   @id @default(cuid())
+  entityType String   // "TOURNAMENT" or "MATCH"
+  entityId   String   // tournamentId OR matchId
+  userId     String
+  role       String   // "ORGANIZER", "REFEREE", "SCORER", "UMPIRE", etc.
+  isPrimary  Boolean  @default(false)
+  joinedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Optional: Add relations to Tournament and Match if you want type safety
+  // tournament Tournament? @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "personnel_tournament_fk")
+  // match      Match?      @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "personnel_match_fk")
+
+  // ✅ Add these relations to support the personnel fields in Tournament and Match
+  // tournament Tournament? @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "personnel_tournament_fk")
+  // match      Match?      @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "personnel_match_fk")
+
+  @@unique([entityType, entityId, userId])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([role])
+}
+
 
 // ===================== MATCH STATS ===================== //
 

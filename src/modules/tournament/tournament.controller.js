@@ -7,6 +7,81 @@ const parseIfString = (value) => {
 };
 
 
+// export const createTournament = async (req, res) => {
+//     try {
+//         const {
+//             name,
+//             sportCode,
+//             tournamentType,
+//             startDate,
+//             endDate,
+//             scheduleType,
+//             isPublic,
+//             entryFee,
+//             matchMakingAt,
+//             city,
+//         } = req.body;
+
+//         if (!name || !sportCode || !tournamentType || !startDate) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "name, sportCode, tournamentType, startDate are required",
+//             });
+//         }
+
+//         // const location = req.body.location ? JSON.parse(req.body.location) : null;
+//         // const rules = req.body.rules ? JSON.parse(req.body.rules) : null;
+//         // const reportingSlots = req.body.reportingSlots
+//         //     ? JSON.parse(req.body.reportingSlots)
+//         //     : [];
+
+//         const location = parseIfString(req.body.location);
+//         const locations = parseIfString(req.body.locations) || (location ? [location] : []);
+//         const rules = parseIfString(req.body.rules);
+//         const reportingSlots = parseIfString(req.body.reportingSlots) || [];
+
+//         if (!locations.length) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "At least one location is required",
+//             });
+//         }
+
+//         const logoUrl = req.body.logo || null;
+//         const bannerUrl = req.body.banner || null;
+
+//         const tournament = await tournamentService.createTournament({
+//             name,
+//             sportCode,
+//             tournamentType,
+//             startDate,
+//             endDate,
+//             scheduleType,
+//             isPublic,
+//             entryFee,
+//             matchMakingAt,
+//             locations,
+//             rules,
+//             reportingSlots,
+//             logoUrl,
+//             bannerUrl,
+//             city,
+//             organizerId: req.user.id,
+//         });
+
+//         return res.status(201).json({
+//             success: true,
+//             data: tournament,
+//         });
+//     } catch (error) {
+//         console.error("Create Tournament Error:", error);
+//         return res.status(400).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const createTournament = async (req, res) => {
     try {
         const {
@@ -20,6 +95,7 @@ export const createTournament = async (req, res) => {
             entryFee,
             matchMakingAt,
             city,
+            personnel, // 🆕 Add personnel field
         } = req.body;
 
         if (!name || !sportCode || !tournamentType || !startDate) {
@@ -29,16 +105,11 @@ export const createTournament = async (req, res) => {
             });
         }
 
-        // const location = req.body.location ? JSON.parse(req.body.location) : null;
-        // const rules = req.body.rules ? JSON.parse(req.body.rules) : null;
-        // const reportingSlots = req.body.reportingSlots
-        //     ? JSON.parse(req.body.reportingSlots)
-        //     : [];
-
         const location = parseIfString(req.body.location);
         const locations = parseIfString(req.body.locations) || (location ? [location] : []);
         const rules = parseIfString(req.body.rules);
         const reportingSlots = parseIfString(req.body.reportingSlots) || [];
+        const personnelList = parseIfString(req.body.personnel) || [];
 
         if (!locations.length) {
             return res.status(400).json({
@@ -67,6 +138,7 @@ export const createTournament = async (req, res) => {
             bannerUrl,
             city,
             organizerId: req.user.id,
+            personnel: personnelList, // 🆕 Pass personnel
         });
 
         return res.status(201).json({
@@ -79,6 +151,42 @@ export const createTournament = async (req, res) => {
             success: false,
             message: error.message,
         });
+    }
+};
+
+export const updateTournament = async (req, res) => {
+    try {
+        const locations = parseIfString(req.body.locations);
+        const personnel = parseIfString(req.body.personnel); // 🆕 Add personnel
+
+        const updated = await tournamentService.updateTournament(
+            req.params.tournamentId,
+            {
+                ...req.body,
+                locations,
+                personnel, // 🆕 Pass personnel
+            }
+        );
+
+        res.json({
+            success: true,
+            message: "Tournament updated successfully",
+            data: updated,
+        });
+    } catch (error) {
+        console.error("❌ Update Tournament Error:", error);
+        const map = {
+            TOURNAMENT_NOT_FOUND: [404, "Tournament not found"],
+            TOURNAMENT_LOCKED: [409, "Tournament can no longer be modified"],
+            INVALID_DATE_RANGE: [400, "Invalid date range"],
+        };
+
+        const [status, message] = map[error.message] || [
+            400,
+            error.message || "Failed to update tournament",
+        ];
+
+        res.status(status).json({ success: false, message });
     }
 };
 
@@ -207,38 +315,38 @@ export const getTournament = async (req, res) => {
 // };
 
 
-export const updateTournament = async (req, res) => {
-    try {
-        const locations = parseIfString(req.body.locations);
+// export const updateTournament = async (req, res) => {
+//     try {
+//         const locations = parseIfString(req.body.locations);
 
-        const updated = await tournamentService.updateTournament(
-            req.params.tournamentId,
-            {
-                ...req.body,
-                locations,
-            }
-        );
+//         const updated = await tournamentService.updateTournament(
+//             req.params.tournamentId,
+//             {
+//                 ...req.body,
+//                 locations,
+//             }
+//         );
 
-        res.json({
-            success: true,
-            message: "Tournament updated successfully",
-            data: updated,
-        });
-    } catch (error) {
-        const map = {
-            TOURNAMENT_NOT_FOUND: [404, "Tournament not found"],
-            TOURNAMENT_LOCKED: [409, "Tournament can no longer be modified"],
-            INVALID_DATE_RANGE: [400, "Invalid date range"],
-        };
+//         res.json({
+//             success: true,
+//             message: "Tournament updated successfully",
+//             data: updated,
+//         });
+//     } catch (error) {
+//         const map = {
+//             TOURNAMENT_NOT_FOUND: [404, "Tournament not found"],
+//             TOURNAMENT_LOCKED: [409, "Tournament can no longer be modified"],
+//             INVALID_DATE_RANGE: [400, "Invalid date range"],
+//         };
 
-        const [status, message] = map[error.message] || [
-            400,
-            error.message || "Failed to update tournament",
-        ];
+//         const [status, message] = map[error.message] || [
+//             400,
+//             error.message || "Failed to update tournament",
+//         ];
 
-        res.status(status).json({ success: false, message });
-    }
-};
+//         res.status(status).json({ success: false, message });
+//     }
+// };
 
 
 export const deleteTournament = async (req, res) => {
