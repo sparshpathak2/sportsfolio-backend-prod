@@ -3320,6 +3320,89 @@ export const listMatchesByTournament = async (tournamentId) => {
 };
 
 
+// export const listMatches = async ({
+//     requesterId,
+//     tournamentId,
+//     status,
+//     scope = "all",
+//     page = 1,
+//     limit = 10,
+// }) => {
+//     const now = new Date();
+//     const where = {};
+
+//     // ----------------- TOURNAMENT FILTER -----------------
+//     if (tournamentId) where.tournamentId = tournamentId;
+
+//     // ----------------- STATUS FILTER -----------------
+//     if (status === "upcoming") {
+//         where.startTime = { gt: now };
+//     } else if (status === "ongoing") {
+//         where.startTime = { lte: now };
+//         where.OR = [{ endTime: null }, { endTime: { gte: now } }];
+//     } else if (status === "completed") {
+//         where.OR = [{ endTime: { lt: now } }, { status: "COMPLETED" }];
+//     } else if (["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"].includes(status)) {
+//         where.status = status;
+//     }
+
+//     // ----------------- MY MATCHES -----------------
+//     if (scope === "my" && requesterId) {
+//         where.OR = [
+//             { participants: { some: { userId: requesterId } } },
+//             { invitations: { some: { playerId: requesterId, status: "ACCEPTED" } } },
+//         ];
+//     }
+
+//     // ----------------- PAGINATION -----------------
+//     const skip = (page - 1) * limit;
+
+//     const [items, total] = await Promise.all([
+//         prisma.match.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { createdAt: "desc" },
+//             include: {
+//                 participants: { include: { user: true } },
+//                 tournament: true,
+//                 location: true,
+//                 parts: true,
+//                 invitations: true,
+//             },
+//         }),
+//         prisma.match.count({ where }),
+//     ]);
+
+//     const formattedMatches = items.map((match) => ({
+//         ...match,
+//         participants: match.participants.map((p) => ({
+//             id: p.id,
+//             user: {
+//                 id: p.user.id,
+//                 name: p.user.name,
+//                 username: p.user.username,
+//                 phone: p.user.phone,
+//             },
+//             team: match.gameType === "DOUBLES" ? p.team : null,
+//             position: p.position,
+//         })),
+//         isParticipant: requesterId
+//             ? match.participants.some((p) => p.userId === requesterId)
+//             : false,
+//     }));
+
+//     return {
+//         meta: {
+//             page,
+//             limit,
+//             total,
+//             totalPages: Math.ceil(total / limit),
+//         },
+//         data: formattedMatches,
+//     };
+// };
+
 export const listMatches = async ({
     requesterId,
     tournamentId,
@@ -3357,12 +3440,13 @@ export const listMatches = async ({
     // ----------------- PAGINATION -----------------
     const skip = (page - 1) * limit;
 
+    // First, get matches
     const [items, total] = await Promise.all([
         prisma.match.findMany({
             where,
             skip,
             take: limit,
-            orderBy: { startTime: "desc" },
+            orderBy: { createdAt: "desc" },
             include: {
                 participants: { include: { user: true } },
                 tournament: true,
@@ -3374,23 +3458,89 @@ export const listMatches = async ({
         prisma.match.count({ where }),
     ]);
 
-    const formattedMatches = items.map((match) => ({
-        ...match,
-        participants: match.participants.map((p) => ({
-            id: p.id,
+    // Get match IDs from fetched items
+    const matchIds = items.map(m => m.id);
+
+    // Fetch personnel for all these matches in a single query
+    const allPersonnel = await prisma.personnel.findMany({
+        where: {
+            entityType: "MATCH",
+            entityId: { in: matchIds }
+        },
+        include: {
             user: {
-                id: p.user.id,
-                name: p.user.name,
-                username: p.user.username,
-                phone: p.user.phone,
-            },
-            team: match.gameType === "DOUBLES" ? p.team : null,
-            position: p.position,
-        })),
-        isParticipant: requesterId
-            ? match.participants.some((p) => p.userId === requesterId)
-            : false,
-    }));
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    phone: true,
+                    profileImage: true
+                }
+            }
+        },
+        orderBy: [
+            { isPrimary: 'desc' },
+            { joinedAt: 'asc' }
+        ]
+    });
+
+    // Group personnel by match ID
+    const personnelByMatch = {};
+    for (const p of allPersonnel) {
+        if (!personnelByMatch[p.entityId]) {
+            personnelByMatch[p.entityId] = [];
+        }
+        personnelByMatch[p.entityId].push(p);
+    }
+
+    // Format matches with personnel
+    const formattedMatches = items.map((match) => {
+        const matchPersonnel = personnelByMatch[match.id] || [];
+
+        return {
+            ...match,
+            participants: match.participants.map((p) => ({
+                id: p.id,
+                user: {
+                    id: p.user.id,
+                    name: p.user.name,
+                    username: p.user.username,
+                    phone: p.user.phone,
+                },
+                team: match.gameType === "DOUBLES" ? p.team : null,
+                position: p.position,
+            })),
+            // Add personnel in the same format as create tournament
+            personnel: matchPersonnel.map(p => ({
+                id: p.id,
+                entityType: p.entityType,
+                entityId: p.entityId,
+                userId: p.userId,
+                role: p.role,
+                isPrimary: p.isPrimary,
+                joinedAt: p.joinedAt,
+                user: {
+                    id: p.user.id,
+                    name: p.user.name,
+                    username: p.user.username,
+                    phone: p.user.phone,
+                    profileImage: p.user.profileImage
+                }
+            })),
+            // Quick access to different roles
+            // officials: {
+            //     referees: matchPersonnel.filter(p => p.role === "REFEREE"),
+            //     umpires: matchPersonnel.filter(p => p.role === "UMPIRE"),
+            //     scorers: matchPersonnel.filter(p => p.role === "SCORER"),
+            //     lineJudges: matchPersonnel.filter(p => p.role === "LINE_JUDGE"),
+            //     other: matchPersonnel.filter(p => !["REFEREE", "UMPIRE", "SCORER", "LINE_JUDGE"].includes(p.role))
+            // },
+            primaryOfficial: matchPersonnel.find(p => p.isPrimary)?.user || null,
+            isParticipant: requesterId
+                ? match.participants.some((p) => p.userId === requesterId)
+                : false,
+        };
+    });
 
     return {
         meta: {

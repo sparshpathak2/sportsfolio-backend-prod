@@ -473,13 +473,89 @@ export const listMatchesByTournament = async (req, res) => {
 //     });
 // };
 
+// export const getMatchById = async (req, res) => {
+//     const { id, tournamentId } = req.params;
+
+//     const match = await prisma.match.findFirst({
+//         where: {
+//             id,
+//             ...(tournamentId ? { tournamentId } : {}), // ✅ only applied if present
+//         },
+//         include: {
+//             participants: {
+//                 include: {
+//                     user: true,
+//                     team: true,
+//                 },
+//             },
+//             parts: true,      // ✅ include match parts
+//             location: true,
+//             events: {          // ✅ NEW: include events
+//                 orderBy: {
+//                     createdAt: 'desc'  // Most recent first
+//                 }
+//             },
+//         },
+//     });
+
+//     if (!match) {
+//         return res.status(404).json({
+//             success: false,
+//             message: "MATCH_NOT_FOUND",
+//         });
+//     }
+
+//     // Format participants
+//     const formattedParticipants = match.participants.map((p) => ({
+//         id: p.id,
+//         user: {
+//             id: p.user.id,
+//             name: p.user.name,
+//             username: p.user.username,
+//             phone: p.user.phone,
+//         },
+//         team: match.gameType === "DOUBLES" ? p.team : null,
+//         position: p.position,
+//     }));
+
+//     // Format parts
+//     const formattedParts = match.parts.map((part) => ({
+//         id: part.id,
+//         partNumber: part.partNumber,
+//         p1Score: part.p1Score,
+//         p2Score: part.p2Score,
+//         winnerParticipantId: part.winnerParticipantId,
+//     }));
+
+//     // Format events (they're already in good shape, but we can ensure consistent format)
+//     const formattedEvents = match.events.map((event) => ({
+//         id: event.id,
+//         type: event.type,
+//         payload: event.payload,
+//         createdAt: event.createdAt
+//     }));
+
+//     const formattedMatch = {
+//         ...match,
+//         participants: formattedParticipants,
+//         parts: formattedParts,
+//         events: formattedEvents,  // ✅ NEW: add events to response
+//     };
+
+//     res.json({
+//         success: true,
+//         data: formattedMatch,
+//     });
+// };
+
 export const getMatchById = async (req, res) => {
     const { id, tournamentId } = req.params;
 
+    // First, fetch the match
     const match = await prisma.match.findFirst({
         where: {
             id,
-            ...(tournamentId ? { tournamentId } : {}), // ✅ only applied if present
+            ...(tournamentId ? { tournamentId } : {}),
         },
         include: {
             participants: {
@@ -488,11 +564,19 @@ export const getMatchById = async (req, res) => {
                     team: true,
                 },
             },
-            parts: true,      // ✅ include match parts
+            parts: true,
             location: true,
-            events: {          // ✅ NEW: include events
+            events: {
                 orderBy: {
-                    createdAt: 'desc'  // Most recent first
+                    createdAt: 'desc'
+                },
+                take: 50, // Limit to last 50 events
+            },
+            tournament: {
+                select: {
+                    id: true,
+                    name: true,
+                    sportCode: true,
                 }
             },
         },
@@ -504,6 +588,29 @@ export const getMatchById = async (req, res) => {
             message: "MATCH_NOT_FOUND",
         });
     }
+
+    // Fetch personnel for this match
+    const personnel = await prisma.personnel.findMany({
+        where: {
+            entityType: "MATCH",
+            entityId: id
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    phone: true,
+                    profileImage: true
+                }
+            }
+        },
+        orderBy: [
+            { isPrimary: 'desc' },
+            { joinedAt: 'asc' }
+        ]
+    });
 
     // Format participants
     const formattedParticipants = match.participants.map((p) => ({
@@ -527,7 +634,7 @@ export const getMatchById = async (req, res) => {
         winnerParticipantId: part.winnerParticipantId,
     }));
 
-    // Format events (they're already in good shape, but we can ensure consistent format)
+    // Format events
     const formattedEvents = match.events.map((event) => ({
         id: event.id,
         type: event.type,
@@ -535,11 +642,44 @@ export const getMatchById = async (req, res) => {
         createdAt: event.createdAt
     }));
 
+    // Format personnel (match officials)
+    const formattedPersonnel = personnel.map((p) => ({
+        id: p.id,
+        entityType: p.entityType,
+        entityId: p.entityId,
+        userId: p.userId,
+        role: p.role,
+        isPrimary: p.isPrimary,
+        joinedAt: p.joinedAt,
+        user: {
+            id: p.user.id,
+            name: p.user.name,
+            username: p.user.username,
+            phone: p.user.phone,
+            profileImage: p.user.profileImage
+        }
+    }));
+
+    // Group officials by role for easy access
+    const officials = {
+        referees: personnel.filter(p => p.role === "REFEREE"),
+        umpires: personnel.filter(p => p.role === "UMPIRE"),
+        scorers: personnel.filter(p => p.role === "SCORER"),
+        lineJudges: personnel.filter(p => p.role === "LINE_JUDGE"),
+        other: personnel.filter(p => !["REFEREE", "UMPIRE", "SCORER", "LINE_JUDGE"].includes(p.role))
+    };
+
+    // Find primary official
+    const primaryOfficial = personnel.find(p => p.isPrimary)?.user || null;
+
     const formattedMatch = {
         ...match,
         participants: formattedParticipants,
         parts: formattedParts,
-        events: formattedEvents,  // ✅ NEW: add events to response
+        events: formattedEvents,
+        personnel: formattedPersonnel,
+        // officials,
+        primaryOfficial,
     };
 
     res.json({

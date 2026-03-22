@@ -589,6 +589,339 @@ export const createTournament = async (data) => {
 //     }));
 // };
 
+// export const listTournaments = async ({
+//     requesterId,
+//     status,
+//     scope,
+//     visibility,
+//     page,
+//     limit,
+// }) => {
+//     const now = new Date();
+
+//     const where = {};
+
+//     /* ------------------
+//        STATUS FILTER
+//     ------------------ */
+//     if (status === "upcoming") {
+//         where.startDate = { gt: now };
+//     }
+
+//     if (status === "ongoing") {
+//         where.startDate = { lte: now };
+//         where.OR = [
+//             { endDate: null },
+//             { endDate: { gte: now } },
+//         ];
+//     }
+
+//     if (status === "completed") {
+//         where.OR = [
+//             { endDate: { lt: now } },
+//             { status: "COMPLETED" },
+//         ];
+//     }
+
+//     /* ------------------
+//        VISIBILITY FILTER
+//     ------------------ */
+//     if (visibility === "public") where.isPublic = true;
+//     if (visibility === "private") where.isPublic = false;
+
+//     /* ------------------
+//        MY TOURNAMENTS
+//     ------------------ */
+//     if (scope === "my" && requesterId) {
+//         where.OR = [
+//             { organizerId: requesterId },
+//             {
+//                 participants: {
+//                     some: {
+//                         OR: [
+//                             { playerId: requesterId },
+//                             {
+//                                 team: {
+//                                     members: { some: { userId: requesterId } },
+//                                 },
+//                             },
+//                         ],
+//                     },
+//                 },
+//             },
+//             {
+//                 invitations: {
+//                     some: {
+//                         playerId: requesterId,
+//                         status: "ACCEPTED",
+//                     },
+//                 },
+//             },
+//         ];
+//     }
+
+//     /* ------------------
+//        PAGINATION
+//     ------------------ */
+//     const skip = (page - 1) * limit;
+
+//     const [items, total] = await Promise.all([
+//         prisma.tournament.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { startDate: "asc" },
+//             include: {
+//                 organizer: true,
+//                 locations: true,
+//                 rules: true,
+//                 participants: requesterId
+//                     ? {
+//                         where: {
+//                             OR: [
+//                                 { playerId: requesterId },
+//                                 {
+//                                     team: {
+//                                         members: { some: { userId: requesterId } },
+//                                     },
+//                                 },
+//                             ],
+//                         },
+//                     }
+//                     : false,
+//                 _count: {
+//                     select: { participants: true },
+//                 },
+//             },
+//         }),
+
+//         prisma.tournament.count({ where }),
+//     ]);
+
+//     return {
+//         data: items.map(t => ({
+//             ...t,
+//             isOrganizer: requesterId ? t.organizerId === requesterId : false,
+//             isParticipant: requesterId ? t.participants?.length > 0 : false,
+//         })),
+//         meta: {
+//             page,
+//             limit,
+//             total,
+//             totalPages: Math.ceil(total / limit),
+//         },
+//     };
+// };
+
+// export const listTournaments = async ({
+//     requesterId,
+//     status,
+//     scope,
+//     visibility,
+//     page,
+//     limit,
+// }) => {
+//     const now = new Date();
+
+//     const where = {};
+
+//     /* ------------------
+//        STATUS FILTER
+//     ------------------ */
+//     if (status === "upcoming") {
+//         where.startDate = { gt: now };
+//     }
+
+//     if (status === "ongoing") {
+//         where.startDate = { lte: now };
+//         where.OR = [
+//             { endDate: null },
+//             { endDate: { gte: now } },
+//         ];
+//     }
+
+//     if (status === "completed") {
+//         where.OR = [
+//             { endDate: { lt: now } },
+//             { status: "COMPLETED" },
+//         ];
+//     }
+
+//     /* ------------------
+//        VISIBILITY FILTER
+//     ------------------ */
+//     if (visibility === "public") where.isPublic = true;
+//     if (visibility === "private") where.isPublic = false;
+
+//     /* ------------------
+//        MY TOURNAMENTS - Using Personnel for organizers
+//     ------------------ */
+//     if (scope === "my" && requesterId) {
+//         // Get tournament IDs where user is an organizer
+//         const organizerTournamentIds = await prisma.personnel.findMany({
+//             where: {
+//                 entityType: "TOURNAMENT",
+//                 userId: requesterId,
+//                 role: "ORGANIZER"
+//             },
+//             select: { entityId: true }
+//         }).then(results => results.map(r => r.entityId));
+
+//         where.OR = [
+//             // User is an organizer
+//             { id: { in: organizerTournamentIds } },
+//             // User is a participant
+//             {
+//                 participants: {
+//                     some: {
+//                         OR: [
+//                             { playerId: requesterId },
+//                             {
+//                                 team: {
+//                                     members: { some: { userId: requesterId } },
+//                                 },
+//                             },
+//                         ],
+//                     },
+//                 },
+//             },
+//             // User has an accepted invitation
+//             {
+//                 invitations: {
+//                     some: {
+//                         playerId: requesterId,
+//                         status: "ACCEPTED",
+//                     },
+//                 },
+//             },
+//         ];
+//     }
+
+//     /* ------------------
+//        PAGINATION
+//     ------------------ */
+//     const skip = (page - 1) * limit;
+
+//     // First, get tournaments without personnel
+//     const [items, total] = await Promise.all([
+//         prisma.tournament.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { startDate: "asc" },
+//             include: {
+//                 locations: true,
+//                 rules: true,
+//                 participants: requesterId
+//                     ? {
+//                         where: {
+//                             OR: [
+//                                 { playerId: requesterId },
+//                                 {
+//                                     team: {
+//                                         members: { some: { userId: requesterId } },
+//                                     },
+//                                 },
+//                             ],
+//                         },
+//                     }
+//                     : false,
+//                 _count: {
+//                     select: { participants: true },
+//                 },
+//             },
+//         }),
+//         prisma.tournament.count({ where }),
+//     ]);
+
+//     // Get tournament IDs from the fetched items
+//     const tournamentIds = items.map(t => t.id);
+
+//     // Fetch all personnel for these tournaments in a single query
+//     const allPersonnel = await prisma.personnel.findMany({
+//         where: {
+//             entityType: "TOURNAMENT",
+//             entityId: { in: tournamentIds }
+//         },
+//         include: {
+//             user: {
+//                 select: {
+//                     id: true,
+//                     name: true,
+//                     username: true,
+//                     phone: true,
+//                     profileImage: true
+//                 }
+//             }
+//         },
+//         orderBy: [
+//             { isPrimary: 'desc' },
+//             { joinedAt: 'asc' }
+//         ]
+//     });
+
+//     // Group personnel by tournament ID
+//     const personnelByTournament = {};
+//     for (const p of allPersonnel) {
+//         if (!personnelByTournament[p.entityId]) {
+//             personnelByTournament[p.entityId] = [];
+//         }
+//         personnelByTournament[p.entityId].push(p);
+//     }
+
+//     return {
+//         meta: {
+//             page,
+//             limit,
+//             total,
+//             totalPages: Math.ceil(total / limit),
+//         },
+//         data: items.map(tournament => {
+//             const tournamentPersonnel = personnelByTournament[tournament.id] || [];
+//             const organizers = tournamentPersonnel.filter(p => p.role === "ORGANIZER");
+
+//             return {
+//                 id: tournament.id,
+//                 name: tournament.name,
+//                 sportCode: tournament.sportCode,
+//                 tournamentType: tournament.tournamentType,
+//                 startDate: tournament.startDate,
+//                 endDate: tournament.endDate,
+//                 status: tournament.status,
+//                 isPublic: tournament.isPublic,
+//                 entryFee: tournament.entryFee,
+//                 scheduleType: tournament.scheduleType,
+//                 matchMakingAt: tournament.matchMakingAt,
+//                 publicJoinCode: tournament.publicJoinCode,
+//                 logo: tournament.logo,
+//                 banner: tournament.banner,
+//                 city: tournament.city,
+//                 createdAt: tournament.createdAt,
+//                 updatedAt: tournament.updatedAt,
+//                 locations: tournament.locations,
+//                 rules: tournament.rules,
+//                 // Organizer information from personnel
+//                 organizers: organizers.map(p => ({
+//                     id: p.user.id,
+//                     name: p.user.name,
+//                     username: p.user.username,
+//                     phone: p.user.phone,
+//                     profileImage: p.user.profileImage,
+//                     isPrimary: p.isPrimary,
+//                     role: p.role
+//                 })),
+//                 // Primary organizer for quick access
+//                 primaryOrganizer: organizers.find(p => p.isPrimary)?.user ||
+//                     organizers[0]?.user || null,
+//                 // User flags
+//                 isOrganizer: requesterId ? organizers.some(p => p.userId === requesterId) : false,
+//                 isParticipant: requesterId ? tournament.participants?.length > 0 : false,
+//                 participantCount: tournament._count.participants,
+//             };
+//         }),
+//     };
+// };
+
 export const listTournaments = async ({
     requesterId,
     status,
@@ -630,11 +963,23 @@ export const listTournaments = async ({
     if (visibility === "private") where.isPublic = false;
 
     /* ------------------
-       MY TOURNAMENTS
+       MY TOURNAMENTS - Using Personnel for organizers
     ------------------ */
     if (scope === "my" && requesterId) {
+        // Get tournament IDs where user is an organizer
+        const organizerTournamentIds = await prisma.personnel.findMany({
+            where: {
+                entityType: "TOURNAMENT",
+                userId: requesterId,
+                role: "ORGANIZER"
+            },
+            select: { entityId: true }
+        }).then(results => results.map(r => r.entityId));
+
         where.OR = [
-            { organizerId: requesterId },
+            // User is an organizer
+            { id: { in: organizerTournamentIds } },
+            // User is a participant
             {
                 participants: {
                     some: {
@@ -649,6 +994,7 @@ export const listTournaments = async ({
                     },
                 },
             },
+            // User has an accepted invitation
             {
                 invitations: {
                     some: {
@@ -665,6 +1011,7 @@ export const listTournaments = async ({
     ------------------ */
     const skip = (page - 1) * limit;
 
+    // First, get tournaments without personnel
     const [items, total] = await Promise.all([
         prisma.tournament.findMany({
             where,
@@ -672,7 +1019,6 @@ export const listTournaments = async ({
             take: limit,
             orderBy: { startDate: "asc" },
             include: {
-                organizer: true,
                 locations: true,
                 rules: true,
                 participants: requesterId
@@ -694,16 +1040,102 @@ export const listTournaments = async ({
                 },
             },
         }),
-
         prisma.tournament.count({ where }),
     ]);
 
+    // Get tournament IDs from the fetched items
+    const tournamentIds = items.map(t => t.id);
+
+    // Fetch all personnel for these tournaments in a single query
+    const allPersonnel = await prisma.personnel.findMany({
+        where: {
+            entityType: "TOURNAMENT",
+            entityId: { in: tournamentIds }
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    phone: true,
+                    profileImage: true
+                }
+            }
+        },
+        orderBy: [
+            { isPrimary: 'desc' },
+            { joinedAt: 'asc' }
+        ]
+    });
+
+    // Group personnel by tournament ID
+    const personnelByTournament = {};
+    for (const p of allPersonnel) {
+        if (!personnelByTournament[p.entityId]) {
+            personnelByTournament[p.entityId] = [];
+        }
+        personnelByTournament[p.entityId].push(p);
+    }
+
+    // Format the data to match create tournament response
+    const formattedData = items.map(tournament => {
+        const tournamentPersonnel = personnelByTournament[tournament.id] || [];
+
+        // Check if user is an organizer
+        const isOrganizer = requesterId ? tournamentPersonnel.some(p => p.userId === requesterId && p.role === "ORGANIZER") : false;
+
+        // Check if user is a participant
+        const isParticipant = requesterId ? tournament.participants?.length > 0 : false;
+
+        return {
+            id: tournament.id,
+            name: tournament.name,
+            sportCode: tournament.sportCode,
+            tournamentType: tournament.tournamentType,
+            startDate: tournament.startDate,
+            endDate: tournament.endDate,
+            status: tournament.status,
+            isPublic: tournament.isPublic,
+            entryFee: tournament.entryFee,
+            scheduleType: tournament.scheduleType,
+            matchMakingAt: tournament.matchMakingAt,
+            publicJoinCode: tournament.publicJoinCode,
+            logo: tournament.logo,
+            banner: tournament.banner,
+            city: tournament.city,
+            createdAt: tournament.createdAt,
+            updatedAt: tournament.updatedAt,
+            locations: tournament.locations,
+            rules: tournament.rules,
+            // Personnel in the same format as create tournament
+            personnel: tournamentPersonnel.map(p => ({
+                id: p.id,
+                entityType: p.entityType,
+                entityId: p.entityId,
+                userId: p.userId,
+                role: p.role,
+                isPrimary: p.isPrimary,
+                joinedAt: p.joinedAt,
+                user: {
+                    id: p.user.id,
+                    name: p.user.name,
+                    username: p.user.username,
+                    phone: p.user.phone,
+                    profileImage: p.user.profileImage
+                }
+            })),
+            // Counts
+            participantCount: tournament._count.participants,
+            // Flags
+            isOrganizer,
+            isParticipant,
+        };
+    });
+
     return {
-        data: items.map(t => ({
-            ...t,
-            isOrganizer: requesterId ? t.organizerId === requesterId : false,
-            isParticipant: requesterId ? t.participants?.length > 0 : false,
-        })),
+        success: true,
+        data: formattedData,
         meta: {
             page,
             limit,
@@ -712,7 +1144,6 @@ export const listTournaments = async ({
         },
     };
 };
-
 
 export const getPublicTournaments = async (requesterId = null) => {
     const tournaments = await prisma.tournament.findMany({
@@ -802,76 +1233,76 @@ export const getMyTournaments = async (userId) => {
     }));
 };
 
-export const getTournament = async (id, requesterId = null) => {
-    const tournament = await prisma.tournament.findUnique({
-        where: { id },
-        include: {
-            locations: true,
-            rules: {
-                include: {
-                    reportingSlots: true,
-                },
-            },
-            participants: {
-                include: {
-                    player: {
-                        select: {
-                            id: true,
-                            name: true,
-                            profileImage: true,
-                        },
-                    },
-                    team: {
-                        include: {
-                            members: true,
-                        },
-                    },
-                },
-            },
-            matches: {
-                include: {
-                    participants: {
-                        include: {
-                            user: {
-                                select: {
-                                    id: true,
-                                    name: true,
-                                    profileImage: true,
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        },
-    });
+// export const getTournament = async (id, requesterId = null) => {
+//     const tournament = await prisma.tournament.findUnique({
+//         where: { id },
+//         include: {
+//             locations: true,
+//             rules: {
+//                 include: {
+//                     reportingSlots: true,
+//                 },
+//             },
+//             participants: {
+//                 include: {
+//                     player: {
+//                         select: {
+//                             id: true,
+//                             name: true,
+//                             profileImage: true,
+//                         },
+//                     },
+//                     team: {
+//                         include: {
+//                             members: true,
+//                         },
+//                     },
+//                 },
+//             },
+//             matches: {
+//                 include: {
+//                     participants: {
+//                         include: {
+//                             user: {
+//                                 select: {
+//                                     id: true,
+//                                     name: true,
+//                                     profileImage: true,
+//                                 },
+//                             },
+//                         },
+//                     },
+//                 },
+//             },
+//         },
+//     });
 
-    if (!tournament) {
-        throw new Error("TOURNAMENT_NOT_FOUND");
-    }
+//     if (!tournament) {
+//         throw new Error("TOURNAMENT_NOT_FOUND");
+//     }
 
-    // ✅ Virtual fields
-    const isOrganizer = requesterId === tournament.organizerId;
+//     // ✅ Virtual fields
+//     const isOrganizer = requesterId === tournament.organizerId;
 
-    let isParticipant = false;
-    if (requesterId) {
-        isParticipant = tournament.participants.some((p) => {
-            // Check direct player participation
-            if (p.playerId === requesterId) return true;
-            // Check team participation (if user is in the team)
-            if (p.teamId && p.team?.members?.some((m) => m.userId === requesterId)) {
-                return true;
-            }
-            return false;
-        });
-    }
+//     let isParticipant = false;
+//     if (requesterId) {
+//         isParticipant = tournament.participants.some((p) => {
+//             // Check direct player participation
+//             if (p.playerId === requesterId) return true;
+//             // Check team participation (if user is in the team)
+//             if (p.teamId && p.team?.members?.some((m) => m.userId === requesterId)) {
+//                 return true;
+//             }
+//             return false;
+//         });
+//     }
 
-    return {
-        ...tournament,
-        isOrganizer,
-        isParticipant,
-    };
-};
+//     return {
+//         ...tournament,
+//         isOrganizer,
+//         isParticipant,
+//     };
+// };
 
 // export const updateTournament = async (id, data) => {
 //     const existing = await prisma.tournament.findUnique({
@@ -1139,6 +1570,159 @@ export const getTournament = async (id, requesterId = null) => {
 //     });
 // };
 
+export const getTournament = async (id, requesterId = null) => {
+    // First, fetch the tournament
+    const tournament = await prisma.tournament.findUnique({
+        where: { id },
+        include: {
+            locations: true,
+            rules: {
+                include: {
+                    reportingSlots: true,
+                },
+            },
+            participants: {
+                include: {
+                    player: {
+                        select: {
+                            id: true,
+                            name: true,
+                            profileImage: true,
+                        },
+                    },
+                    team: {
+                        include: {
+                            members: {
+                                include: {
+                                    user: {
+                                        select: {
+                                            id: true,
+                                            name: true,
+                                            profileImage: true,
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+            matches: {
+                include: {
+                    participants: {
+                        include: {
+                            user: {
+                                select: {
+                                    id: true,
+                                    name: true,
+                                    profileImage: true,
+                                },
+                            },
+                        },
+                    },
+                },
+                take: 10,
+                orderBy: { createdAt: 'desc' },
+            },
+        },
+    });
+
+    if (!tournament) {
+        throw new Error("TOURNAMENT_NOT_FOUND");
+    }
+
+    // ✅ Fetch personnel separately (to match create tournament format)
+    const personnel = await prisma.personnel.findMany({
+        where: {
+            entityType: "TOURNAMENT",
+            entityId: id
+        },
+        include: {
+            user: {
+                select: {
+                    id: true,
+                    name: true,
+                    username: true,
+                    phone: true,
+                    profileImage: true
+                }
+            }
+        },
+        orderBy: [
+            { isPrimary: 'desc' },
+            { joinedAt: 'asc' }
+        ]
+    });
+
+    // ✅ Format participants with user details
+    const formattedParticipants = tournament.participants.map(p => ({
+        id: p.id,
+        playerId: p.playerId,
+        teamId: p.teamId,
+        seed: p.seed,
+        eliminated: p.eliminated,
+        createdAt: p.createdAt,
+        player: p.player,
+        team: p.team ? {
+            id: p.team.id,
+            name: p.team.name,
+            sportCode: p.team.sportCode,
+            logo: p.team.logo,
+            city: p.team.city,
+            isTemporary: p.team.isTemporary,
+            members: p.team.members.map(m => ({
+                id: m.id,
+                userId: m.userId,
+                role: m.role,
+                user: m.user
+            }))
+        } : null
+    }));
+
+    // ✅ Format matches
+    const formattedMatches = tournament.matches.map(match => ({
+        id: match.id,
+        name: match.name,
+        sportCode: match.sportCode,
+        gameType: match.gameType,
+        status: match.status,
+        round: match.round,
+        bracketPosition: match.bracketPosition,
+        participants: match.participants.map(p => ({
+            id: p.id,
+            userId: p.userId,
+            userName: p.user?.name,
+            teamId: p.teamId,
+            position: p.position,
+            side: p.side
+        }))
+    }));
+
+    // ✅ Check if user is an organizer
+    let isOrganizer = false;
+    if (requesterId) {
+        isOrganizer = personnel.some(p => p.userId === requesterId && p.role === "ORGANIZER");
+    }
+
+    // ✅ Check if user is a participant
+    let isParticipant = false;
+    if (requesterId) {
+        isParticipant = tournament.participants.some((p) => {
+            if (p.playerId === requesterId) return true;
+            if (p.teamId && p.team?.members?.some((m) => m.userId === requesterId)) return true;
+            return false;
+        });
+    }
+
+    return {
+        ...tournament,
+        participants: formattedParticipants,
+        matches: formattedMatches,
+        personnel, // Return personnel exactly as fetched (matching create tournament format)
+        isOrganizer,
+        isParticipant,
+    };
+};
 
 export const updateTournament = async (id, data) => {
     const existing = await prisma.tournament.findUnique({

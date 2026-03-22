@@ -221,6 +221,7 @@ export const listTournaments = async (req, res) => {
 
         res.json({ success: true, ...tournaments });
     } catch (error) {
+        console.log(`Error getting tournaments:`, error)
         res.status(500).json({ success: false, message: error.message });
     }
 };
