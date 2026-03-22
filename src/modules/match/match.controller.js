@@ -310,6 +310,67 @@ export const endMatch = async (req, res) => {
 //     }
 // };
 
+// export const createQuickMatch = async (req, res) => {
+//     try {
+//         const {
+//             name,
+//             sportCode,
+//             tournamentId,
+//             locations,
+//             playArea,
+//             gameType,
+//             partsCount,
+//             startTime,
+//             participantIds,  // API always uses this
+//             servingUserId,
+//             personnel,       // 🆕 Personnel for match officials (includes referees, umpires, etc.)
+//         } = req.body;
+
+//         if (!sportCode || !gameType) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "sportCode and gameType are required",
+//             });
+//         }
+
+//         const parsedLocations = parseIfString(locations);
+//         if (!parsedLocations?.length) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "At least one location is required",
+//             });
+//         }
+
+//         const parsedPersonnel = parseIfString(personnel) || [];
+
+//         const match = await matchService.createQuickMatch({
+//             name,
+//             sportCode,
+//             tournamentId,
+//             locations: parsedLocations,
+//             playArea,
+//             gameType,
+//             partsCount,
+//             startTime: startTime ? new Date(startTime) : null,
+//             participantIds,
+//             servingUserId,
+//             personnel: parsedPersonnel,
+//         });
+
+//         return res.status(201).json({
+//             success: true,
+//             message: "MATCH_CREATED",
+//             data: match,
+//         });
+//     } catch (error) {
+//         console.error("Create Quick Match Error:", error);
+//         return res.status(400).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const createQuickMatch = async (req, res) => {
     try {
         const {
@@ -355,6 +416,7 @@ export const createQuickMatch = async (req, res) => {
             participantIds,
             servingUserId,
             personnel: parsedPersonnel,
+            creatorId: req.user.id, // ✅ Add creator ID from authenticated user
         });
 
         return res.status(201).json({

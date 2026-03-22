@@ -2718,6 +2718,376 @@ export const getMatchSummary = async (matchId) => {
 // };
 
 
+// export const createQuickMatch = async ({
+//     name,
+//     sportCode,
+//     tournamentId,
+//     locations,
+//     playArea,
+//     gameType,
+//     partsCount,
+//     startTime,
+//     participantIds,     // API accepts this - can be userIds or teamIds
+//     servingUserId,      // Optional: userId of serving player
+//     personnel = [],     // Personnel for match officials
+// }) => {
+//     if (!locations?.length) throw new Error("LOCATIONS_REQUIRED");
+//     if (playArea === undefined || playArea === null) throw new Error("PLAY_AREA_REQUIRED");
+//     if (!participantIds || !Array.isArray(participantIds)) throw new Error("participantIds is required");
+
+//     return prisma.$transaction(async (tx) => {
+//         // 🔥 SMART DETECTION: Determine if we're dealing with teams or users
+//         let isTeamBased = false;
+
+//         if (gameType === "DOUBLES") {
+//             // Check if the first ID exists as a team in the database
+//             const firstId = participantIds[0];
+
+//             // Try to find it as a team
+//             const teamCheck = await tx.team.findUnique({
+//                 where: { id: firstId },
+//                 select: { id: true }
+//             }).catch(() => null);
+
+//             isTeamBased = !!teamCheck;
+
+//             console.log(`🔍 Team detection:`, {
+//                 firstId,
+//                 foundAsTeam: isTeamBased,
+//                 participantCount: participantIds.length
+//             });
+
+//             if (isTeamBased && participantIds.length !== 2) {
+//                 throw new Error("DOUBLES_MATCH_WITH_TEAMS_REQUIRES_2_TEAM_IDS");
+//             }
+//             if (!isTeamBased && participantIds.length !== 4) {
+//                 throw new Error("DOUBLES_MATCH_WITH_PLAYERS_REQUIRES_4_PARTICIPANTS");
+//             }
+//         } else if (gameType === "SINGLES") {
+//             if (participantIds.length !== 2) {
+//                 throw new Error("SINGLES_MATCH_REQUIRES_2_PARTICIPANTS");
+//             }
+//             isTeamBased = false; // Singles are always player-based
+//         }
+
+//         // 1️⃣ Handle location (connectOrCreate)
+//         const locationId = locations[0]?.id ?? null;
+//         if (!locationId) {
+//             const loc = locations[0];
+//             const createdLocation = await tx.location.upsert({
+//                 where: {
+//                     name_address: { name: loc.name, address: loc.address },
+//                 },
+//                 create: {
+//                     name: loc.name,
+//                     address: loc.address,
+//                     city: loc.city ?? null,
+//                     state: loc.state ?? null,
+//                     country: loc.country ?? "India",
+//                     zipCode: loc.zipCode ?? null,
+//                 },
+//                 update: {},
+//             });
+//             locations[0].id = createdLocation.id;
+//         }
+
+//         // 2️⃣ Optional: Validate tournament rules
+//         if (tournamentId) {
+//             const rules = await tx.tournamentRules.findUnique({ where: { tournamentId } });
+//             if (!rules) throw new Error("TOURNAMENT_RULES_NOT_FOUND");
+//             if (rules.gameType !== gameType) throw new Error("GAME_TYPE_MISMATCH_WITH_TOURNAMENT");
+//             if (!partsCount) partsCount = rules.partsPerMatch;
+//         }
+
+//         if (!partsCount) throw new Error("PARTS_COUNT_REQUIRED");
+
+//         // 3️⃣ Create the match
+//         const match = await tx.match.create({
+//             data: {
+//                 tournamentId: tournamentId ?? null,
+//                 sportCode,
+//                 locationId: locations[0].id,
+//                 playArea,
+//                 gameType,
+//                 partsCount,
+//                 startTime,
+//                 status: startTime ? "SCHEDULED" : "LIVE",
+//                 name,
+//             },
+//         });
+
+//         // 4️⃣ Add participants based on detected type
+//         if (gameType === "SINGLES") {
+//             // Singles: Always player-based
+//             for (let i = 0; i < participantIds.length; i++) {
+//                 const userId = participantIds[i];
+//                 const participant = await tx.matchParticipant.create({
+//                     data: {
+//                         matchId: match.id,
+//                         userId: userId,
+//                         position: i + 1,
+//                         side: i + 1, // For singles, side = position
+//                     }
+//                 });
+
+//                 // Set serving participant if this is the serving user
+//                 if (servingUserId && userId === servingUserId) {
+//                     await tx.match.update({
+//                         where: { id: match.id },
+//                         data: { servingParticipantId: participant.id }
+//                     });
+//                 }
+//             }
+//         } else if (gameType === "DOUBLES") {
+//             if (isTeamBased) {
+//                 // TEAM-BASED: participantIds are team IDs
+//                 const teamAId = participantIds[0];
+//                 const teamBId = participantIds[1];
+
+//                 // Validate teams exist and have 2 members each
+//                 const teamA = await tx.team.findUnique({
+//                     where: { id: teamAId },
+//                     include: { members: true }
+//                 });
+//                 if (!teamA) throw new Error(`Team with ID ${teamAId} not found`);
+//                 if (teamA.members.length !== 2) {
+//                     throw new Error(`Team ${teamA.name} must have exactly 2 players, but has ${teamA.members.length}`);
+//                 }
+
+//                 const teamB = await tx.team.findUnique({
+//                     where: { id: teamBId },
+//                     include: { members: true }
+//                 });
+//                 if (!teamB) throw new Error(`Team with ID ${teamBId} not found`);
+//                 if (teamB.members.length !== 2) {
+//                     throw new Error(`Team ${teamB.name} must have exactly 2 players, but has ${teamB.members.length}`);
+//                 }
+
+//                 // Add Team A members (side 1, positions 1-2)
+//                 const teamAMembers = await tx.teamMember.findMany({
+//                     where: { teamId: teamAId },
+//                     include: { user: true }
+//                 });
+
+//                 for (let i = 0; i < teamAMembers.length; i++) {
+//                     const participant = await tx.matchParticipant.create({
+//                         data: {
+//                             matchId: match.id,
+//                             userId: teamAMembers[i].userId,
+//                             teamId: teamAId,
+//                             side: 1,
+//                             position: i + 1
+//                         }
+//                     });
+
+//                     if (servingUserId && teamAMembers[i].userId === servingUserId) {
+//                         await tx.match.update({
+//                             where: { id: match.id },
+//                             data: { servingParticipantId: participant.id }
+//                         });
+//                     }
+//                 }
+
+//                 // Add Team B members (side 2, positions 3-4)
+//                 const teamBMembers = await tx.teamMember.findMany({
+//                     where: { teamId: teamBId },
+//                     include: { user: true }
+//                 });
+
+//                 for (let i = 0; i < teamBMembers.length; i++) {
+//                     const participant = await tx.matchParticipant.create({
+//                         data: {
+//                             matchId: match.id,
+//                             userId: teamBMembers[i].userId,
+//                             teamId: teamBId,
+//                             side: 2,
+//                             position: i + 3
+//                         }
+//                     });
+
+//                     if (servingUserId && teamBMembers[i].userId === servingUserId) {
+//                         await tx.match.update({
+//                             where: { id: match.id },
+//                             data: { servingParticipantId: participant.id }
+//                         });
+//                     }
+//                 }
+//             } else {
+//                 // PLAYER-BASED: participantIds are user IDs - CREATE TEMPORARY TEAMS
+//                 // Group first two players as Team A, last two as Team B
+
+//                 // Create temporary team for first two players
+//                 const teamA = await tx.team.create({
+//                     data: {
+//                         name: `Team A (${new Date().getTime()})`,
+//                         sportCode,
+//                         isTemporary: true,
+//                         members: {
+//                             create: [
+//                                 { userId: participantIds[0], role: "PLAYER" },
+//                                 { userId: participantIds[1], role: "PLAYER" }
+//                             ]
+//                         }
+//                     }
+//                 });
+
+//                 // Create temporary team for last two players
+//                 const teamB = await tx.team.create({
+//                     data: {
+//                         name: `Team B (${new Date().getTime()})`,
+//                         sportCode,
+//                         isTemporary: true,
+//                         members: {
+//                             create: [
+//                                 { userId: participantIds[2], role: "PLAYER" },
+//                                 { userId: participantIds[3], role: "PLAYER" }
+//                             ]
+//                         }
+//                     }
+//                 });
+
+//                 // Add Team A members
+//                 for (let i = 0; i < 2; i++) {
+//                     const participant = await tx.matchParticipant.create({
+//                         data: {
+//                             matchId: match.id,
+//                             userId: participantIds[i],
+//                             teamId: teamA.id,
+//                             side: 1,
+//                             position: i + 1
+//                         }
+//                     });
+
+//                     if (servingUserId && participantIds[i] === servingUserId) {
+//                         await tx.match.update({
+//                             where: { id: match.id },
+//                             data: { servingParticipantId: participant.id }
+//                         });
+//                     }
+//                 }
+
+//                 // Add Team B members
+//                 for (let i = 2; i < 4; i++) {
+//                     const participant = await tx.matchParticipant.create({
+//                         data: {
+//                             matchId: match.id,
+//                             userId: participantIds[i],
+//                             teamId: teamB.id,
+//                             side: 2,
+//                             position: i + 1 // i=2 → position 3, i=3 → position 4
+//                         }
+//                     });
+
+//                     if (servingUserId && participantIds[i] === servingUserId) {
+//                         await tx.match.update({
+//                             where: { id: match.id },
+//                             data: { servingParticipantId: participant.id }
+//                         });
+//                     }
+//                 }
+//             }
+//         }
+
+//         // 5️⃣ Create match parts
+//         await tx.matchPart.createMany({
+//             data: Array.from({ length: partsCount }).map((_, i) => ({
+//                 matchId: match.id,
+//                 partNumber: i + 1,
+//             })),
+//         });
+
+//         // 6️⃣ Add match personnel (officials, referees, etc.)
+//         if (personnel && personnel.length) {
+//             await addPersonnel({
+//                 tx,
+//                 entityType: "MATCH",
+//                 entityId: match.id,
+//                 personnel: personnel,
+//                 skipValidation: true
+//             });
+//         }
+
+//         // 7️⃣ Fetch the complete match with all relations (personnel fetched separately)
+//         const completeMatch = await tx.match.findUnique({
+//             where: { id: match.id },
+//             include: {
+//                 participants: {
+//                     include: {
+//                         user: {
+//                             select: {
+//                                 id: true,
+//                                 name: true,
+//                                 phone: true,
+//                                 username: true,
+//                                 profileImage: true
+//                             }
+//                         },
+//                         team: {
+//                             include: {
+//                                 members: {
+//                                     include: {
+//                                         user: {
+//                                             select: {
+//                                                 id: true,
+//                                                 name: true,
+//                                                 username: true
+//                                             }
+//                                         }
+//                                     }
+//                                 }
+//                             }
+//                         }
+//                     },
+//                     orderBy: {
+//                         position: 'asc'
+//                     }
+//                 },
+//                 location: true,
+//                 parts: {
+//                     orderBy: {
+//                         partNumber: 'asc'
+//                     }
+//                 },
+//                 events: {
+//                     orderBy: {
+//                         createdAt: 'desc'
+//                     },
+//                     take: 50
+//                 }
+//             }
+//         });
+
+//         // 8️⃣ Fetch personnel separately (since it's not a direct relation)
+//         const matchPersonnel = await tx.personnel.findMany({
+//             where: {
+//                 entityType: "MATCH",
+//                 entityId: match.id
+//             },
+//             include: {
+//                 user: {
+//                     select: {
+//                         id: true,
+//                         name: true,
+//                         username: true,
+//                         phone: true,
+//                         profileImage: true
+//                     }
+//                 }
+//             },
+//             orderBy: [
+//                 { isPrimary: 'desc' },
+//                 { joinedAt: 'asc' }
+//             ]
+//         });
+
+//         // 9️⃣ Return combined data
+//         return {
+//             ...completeMatch,
+//             personnel: matchPersonnel
+//         };
+//     });
+// };
+
 export const createQuickMatch = async ({
     name,
     sportCode,
@@ -2730,10 +3100,12 @@ export const createQuickMatch = async ({
     participantIds,     // API accepts this - can be userIds or teamIds
     servingUserId,      // Optional: userId of serving player
     personnel = [],     // Personnel for match officials
+    creatorId,          // ✅ Add creatorId (the user creating the match)
 }) => {
     if (!locations?.length) throw new Error("LOCATIONS_REQUIRED");
     if (playArea === undefined || playArea === null) throw new Error("PLAY_AREA_REQUIRED");
     if (!participantIds || !Array.isArray(participantIds)) throw new Error("participantIds is required");
+    if (!creatorId) throw new Error("CREATOR_ID_REQUIRED");
 
     return prisma.$transaction(async (tx) => {
         // 🔥 SMART DETECTION: Determine if we're dealing with teams or users
@@ -2996,13 +3368,22 @@ export const createQuickMatch = async ({
             })),
         });
 
-        // 6️⃣ Add match personnel (officials, referees, etc.)
-        if (personnel && personnel.length) {
+        // 6️⃣ Add match personnel - ALWAYS ADD CREATOR AS PRIMARY OFFICIAL
+        const creatorPersonnel = [{
+            userId: creatorId,
+            role: "REFEREE", // or "PRIMARY_OFFICIAL"
+            isPrimary: true
+        }];
+
+        // Merge creator with provided personnel, ensuring no duplicate
+        const allPersonnel = [creatorPersonnel[0], ...personnel.filter(p => p.userId !== creatorId)];
+
+        if (allPersonnel.length) {
             await addPersonnel({
                 tx,
                 entityType: "MATCH",
                 entityId: match.id,
-                personnel: personnel,
+                personnel: allPersonnel,
                 skipValidation: true
             });
         }
@@ -3403,6 +3784,337 @@ export const listMatchesByTournament = async (tournamentId) => {
 //     };
 // };
 
+// export const listMatches = async ({
+//     requesterId,
+//     tournamentId,
+//     status,
+//     scope = "all",
+//     page = 1,
+//     limit = 10,
+// }) => {
+//     const now = new Date();
+//     const where = {};
+
+//     // ----------------- TOURNAMENT FILTER -----------------
+//     if (tournamentId) where.tournamentId = tournamentId;
+
+//     // ----------------- STATUS FILTER -----------------
+//     if (status === "upcoming") {
+//         where.startTime = { gt: now };
+//     } else if (status === "ongoing") {
+//         where.startTime = { lte: now };
+//         where.OR = [{ endTime: null }, { endTime: { gte: now } }];
+//     } else if (status === "completed") {
+//         where.OR = [{ endTime: { lt: now } }, { status: "COMPLETED" }];
+//     } else if (["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"].includes(status)) {
+//         where.status = status;
+//     }
+
+//     // ----------------- MY MATCHES -----------------
+//     if (scope === "my" && requesterId) {
+//         where.OR = [
+//             { participants: { some: { userId: requesterId } } },
+//             { invitations: { some: { playerId: requesterId, status: "ACCEPTED" } } },
+//         ];
+//     }
+
+//     // ----------------- PAGINATION -----------------
+//     const skip = (page - 1) * limit;
+
+//     // First, get matches
+//     const [items, total] = await Promise.all([
+//         prisma.match.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { createdAt: "desc" },
+//             include: {
+//                 participants: { include: { user: true } },
+//                 tournament: true,
+//                 location: true,
+//                 parts: true,
+//                 invitations: true,
+//             },
+//         }),
+//         prisma.match.count({ where }),
+//     ]);
+
+//     // Get match IDs from fetched items
+//     const matchIds = items.map(m => m.id);
+
+//     // Fetch personnel for all these matches in a single query
+//     const allPersonnel = await prisma.personnel.findMany({
+//         where: {
+//             entityType: "MATCH",
+//             entityId: { in: matchIds }
+//         },
+//         include: {
+//             user: {
+//                 select: {
+//                     id: true,
+//                     name: true,
+//                     username: true,
+//                     phone: true,
+//                     profileImage: true
+//                 }
+//             }
+//         },
+//         orderBy: [
+//             { isPrimary: 'desc' },
+//             { joinedAt: 'asc' }
+//         ]
+//     });
+
+//     // Group personnel by match ID
+//     const personnelByMatch = {};
+//     for (const p of allPersonnel) {
+//         if (!personnelByMatch[p.entityId]) {
+//             personnelByMatch[p.entityId] = [];
+//         }
+//         personnelByMatch[p.entityId].push(p);
+//     }
+
+//     // Format matches with personnel
+//     const formattedMatches = items.map((match) => {
+//         const matchPersonnel = personnelByMatch[match.id] || [];
+
+//         return {
+//             ...match,
+//             participants: match.participants.map((p) => ({
+//                 id: p.id,
+//                 user: {
+//                     id: p.user.id,
+//                     name: p.user.name,
+//                     username: p.user.username,
+//                     phone: p.user.phone,
+//                 },
+//                 team: match.gameType === "DOUBLES" ? p.team : null,
+//                 position: p.position,
+//             })),
+//             // Add personnel in the same format as create tournament
+//             personnel: matchPersonnel.map(p => ({
+//                 id: p.id,
+//                 entityType: p.entityType,
+//                 entityId: p.entityId,
+//                 userId: p.userId,
+//                 role: p.role,
+//                 isPrimary: p.isPrimary,
+//                 joinedAt: p.joinedAt,
+//                 user: {
+//                     id: p.user.id,
+//                     name: p.user.name,
+//                     username: p.user.username,
+//                     phone: p.user.phone,
+//                     profileImage: p.user.profileImage
+//                 }
+//             })),
+//             // Quick access to different roles
+//             // officials: {
+//             //     referees: matchPersonnel.filter(p => p.role === "REFEREE"),
+//             //     umpires: matchPersonnel.filter(p => p.role === "UMPIRE"),
+//             //     scorers: matchPersonnel.filter(p => p.role === "SCORER"),
+//             //     lineJudges: matchPersonnel.filter(p => p.role === "LINE_JUDGE"),
+//             //     other: matchPersonnel.filter(p => !["REFEREE", "UMPIRE", "SCORER", "LINE_JUDGE"].includes(p.role))
+//             // },
+//             primaryOfficial: matchPersonnel.find(p => p.isPrimary)?.user || null,
+//             isParticipant: requesterId
+//                 ? match.participants.some((p) => p.userId === requesterId)
+//                 : false,
+//         };
+//     });
+
+//     return {
+//         meta: {
+//             page,
+//             limit,
+//             total,
+//             totalPages: Math.ceil(total / limit),
+//         },
+//         data: formattedMatches,
+//     };
+// };
+
+
+// export const listMatches = async ({
+//     requesterId,
+//     tournamentId,
+//     status,
+//     scope = "all",
+//     page = 1,
+//     limit = 10,
+// }) => {
+//     const now = new Date();
+//     const where = {};
+
+//     // ----------------- TOURNAMENT FILTER -----------------
+//     if (tournamentId) where.tournamentId = tournamentId;
+
+//     // ----------------- STATUS FILTER -----------------
+//     if (status === "upcoming") {
+//         where.startTime = { gt: now };
+//     } else if (status === "ongoing") {
+//         where.startTime = { lte: now };
+//         where.OR = [{ endTime: null }, { endTime: { gte: now } }];
+//     } else if (status === "completed") {
+//         where.OR = [{ endTime: { lt: now } }, { status: "COMPLETED" }];
+//     } else if (["SCHEDULED", "LIVE", "COMPLETED", "CANCELLED"].includes(status)) {
+//         where.status = status;
+//     }
+
+//     // ----------------- MY MATCHES (Enhanced - 4 categories) -----------------
+//     if (scope === "my" && requesterId) {
+//         // 1️⃣ Get match IDs where user is a participant
+//         const participantMatchIds = await prisma.matchParticipant.findMany({
+//             where: { userId: requesterId },
+//             select: { matchId: true }
+//         }).then(results => results.map(r => r.matchId));
+
+//         // 2️⃣ Get match IDs where user is an official (from Personnel)
+//         const officialMatchIds = await prisma.personnel.findMany({
+//             where: {
+//                 entityType: "MATCH",
+//                 userId: requesterId
+//             },
+//             select: { entityId: true }
+//         }).then(results => results.map(r => r.entityId));
+
+//         // 3️⃣ Get match IDs where user has accepted invitations
+//         const invitationMatchIds = await prisma.invitation.findMany({
+//             where: {
+//                 playerId: requesterId,
+//                 status: "ACCEPTED"
+//             },
+//             select: { matchId: true }
+//         }).then(results => results.map(r => r.matchId));
+
+//         // Combine all IDs
+//         const allRelatedMatchIds = [
+//             ...new Set([
+//                 ...participantMatchIds,
+//                 ...officialMatchIds,
+//                 ...invitationMatchIds
+//             ])
+//         ];
+
+//         console.log(`🔍 User ${requesterId} is related to ${allRelatedMatchIds.length} matches:`, {
+//             participant: participantMatchIds.length,
+//             official: officialMatchIds.length,
+//             invitation: invitationMatchIds.length
+//         });
+
+//         where.id = { in: allRelatedMatchIds };
+//     }
+
+//     // ----------------- PAGINATION -----------------
+//     const skip = (page - 1) * limit;
+
+//     // First, get matches
+//     const [items, total] = await Promise.all([
+//         prisma.match.findMany({
+//             where,
+//             skip,
+//             take: limit,
+//             orderBy: { createdAt: "desc" },
+//             include: {
+//                 participants: { include: { user: true } },
+//                 tournament: true,
+//                 location: true,
+//                 parts: true,
+//                 invitations: true,
+//             },
+//         }),
+//         prisma.match.count({ where }),
+//     ]);
+
+//     // Get match IDs from fetched items
+//     const matchIds = items.map(m => m.id);
+
+//     // Fetch personnel for all these matches in a single query
+//     const allPersonnel = await prisma.personnel.findMany({
+//         where: {
+//             entityType: "MATCH",
+//             entityId: { in: matchIds }
+//         },
+//         include: {
+//             user: {
+//                 select: {
+//                     id: true,
+//                     name: true,
+//                     username: true,
+//                     phone: true,
+//                     profileImage: true
+//                 }
+//             }
+//         },
+//         orderBy: [
+//             { isPrimary: 'desc' },
+//             { joinedAt: 'asc' }
+//         ]
+//     });
+
+//     // Group personnel by match ID
+//     const personnelByMatch = {};
+//     for (const p of allPersonnel) {
+//         if (!personnelByMatch[p.entityId]) {
+//             personnelByMatch[p.entityId] = [];
+//         }
+//         personnelByMatch[p.entityId].push(p);
+//     }
+
+//     // Format matches with personnel
+//     const formattedMatches = items.map((match) => {
+//         const matchPersonnel = personnelByMatch[match.id] || [];
+
+//         // Check if user is an official in this match
+//         const isOfficial = requesterId ? matchPersonnel.some(p => p.userId === requesterId) : false;
+//         const isParticipant = requesterId ? match.participants.some((p) => p.userId === requesterId) : false;
+
+//         return {
+//             ...match,
+//             participants: match.participants.map((p) => ({
+//                 id: p.id,
+//                 user: {
+//                     id: p.user.id,
+//                     name: p.user.name,
+//                     username: p.user.username,
+//                     phone: p.user.phone,
+//                 },
+//                 team: match.gameType === "DOUBLES" ? p.team : null,
+//                 position: p.position,
+//             })),
+//             personnel: matchPersonnel.map(p => ({
+//                 id: p.id,
+//                 entityType: p.entityType,
+//                 entityId: p.entityId,
+//                 userId: p.userId,
+//                 role: p.role,
+//                 isPrimary: p.isPrimary,
+//                 joinedAt: p.joinedAt,
+//                 user: {
+//                     id: p.user.id,
+//                     name: p.user.name,
+//                     username: p.user.username,
+//                     phone: p.user.phone,
+//                     profileImage: p.user.profileImage
+//                 }
+//             })),
+//             primaryOfficial: matchPersonnel.find(p => p.isPrimary)?.user || null,
+//             isParticipant,
+//             isOfficial,
+//         };
+//     });
+
+//     return {
+//         meta: {
+//             page,
+//             limit,
+//             total,
+//             totalPages: Math.ceil(total / limit),
+//         },
+//         data: formattedMatches,
+//     };
+// };
+
 export const listMatches = async ({
     requesterId,
     tournamentId,
@@ -3429,12 +4141,62 @@ export const listMatches = async ({
         where.status = status;
     }
 
-    // ----------------- MY MATCHES -----------------
+    // ----------------- MY MATCHES (Enhanced - 4 categories) -----------------
     if (scope === "my" && requesterId) {
-        where.OR = [
-            { participants: { some: { userId: requesterId } } },
-            { invitations: { some: { playerId: requesterId, status: "ACCEPTED" } } },
+        // 1️⃣ Get match IDs where user is a participant
+        const participantMatchIds = await prisma.matchParticipant.findMany({
+            where: { userId: requesterId },
+            select: { matchId: true }
+        }).then(results => results.map(r => r.matchId).filter(id => id !== null)); // ✅ Filter null
+
+        // 2️⃣ Get match IDs where user is an official (from Personnel)
+        const officialMatchIds = await prisma.personnel.findMany({
+            where: {
+                entityType: "MATCH",
+                userId: requesterId
+            },
+            select: { entityId: true }
+        }).then(results => results.map(r => r.entityId).filter(id => id !== null)); // ✅ Filter null
+
+        // 3️⃣ Get match IDs where user has accepted invitations
+        const invitationMatchIds = await prisma.invitation.findMany({
+            where: {
+                playerId: requesterId,
+                status: "ACCEPTED"
+            },
+            select: { matchId: true }
+        }).then(results => results.map(r => r.matchId).filter(id => id !== null)); // ✅ Filter null
+
+        // Combine all IDs
+        const allRelatedMatchIds = [
+            ...new Set([
+                ...participantMatchIds,
+                ...officialMatchIds,
+                ...invitationMatchIds
+            ])
         ];
+
+        console.log(`🔍 User ${requesterId} is related to ${allRelatedMatchIds.length} matches:`, {
+            participant: participantMatchIds.length,
+            official: officialMatchIds.length,
+            invitation: invitationMatchIds.length
+        });
+
+        // Only apply filter if there are related matches
+        if (allRelatedMatchIds.length > 0) {
+            where.id = { in: allRelatedMatchIds };
+        } else {
+            // If no related matches, return empty result
+            return {
+                meta: {
+                    page,
+                    limit,
+                    total: 0,
+                    totalPages: 0,
+                },
+                data: [],
+            };
+        }
     }
 
     // ----------------- PAGINATION -----------------
@@ -3457,6 +4219,19 @@ export const listMatches = async ({
         }),
         prisma.match.count({ where }),
     ]);
+
+    // If no items, return early
+    if (items.length === 0) {
+        return {
+            meta: {
+                page,
+                limit,
+                total,
+                totalPages: Math.ceil(total / limit),
+            },
+            data: [],
+        };
+    }
 
     // Get match IDs from fetched items
     const matchIds = items.map(m => m.id);
@@ -3497,6 +4272,10 @@ export const listMatches = async ({
     const formattedMatches = items.map((match) => {
         const matchPersonnel = personnelByMatch[match.id] || [];
 
+        // Check if user is an official in this match
+        const isOfficial = requesterId ? matchPersonnel.some(p => p.userId === requesterId) : false;
+        const isParticipant = requesterId ? match.participants.some((p) => p.userId === requesterId) : false;
+
         return {
             ...match,
             participants: match.participants.map((p) => ({
@@ -3510,7 +4289,6 @@ export const listMatches = async ({
                 team: match.gameType === "DOUBLES" ? p.team : null,
                 position: p.position,
             })),
-            // Add personnel in the same format as create tournament
             personnel: matchPersonnel.map(p => ({
                 id: p.id,
                 entityType: p.entityType,
@@ -3527,18 +4305,9 @@ export const listMatches = async ({
                     profileImage: p.user.profileImage
                 }
             })),
-            // Quick access to different roles
-            // officials: {
-            //     referees: matchPersonnel.filter(p => p.role === "REFEREE"),
-            //     umpires: matchPersonnel.filter(p => p.role === "UMPIRE"),
-            //     scorers: matchPersonnel.filter(p => p.role === "SCORER"),
-            //     lineJudges: matchPersonnel.filter(p => p.role === "LINE_JUDGE"),
-            //     other: matchPersonnel.filter(p => !["REFEREE", "UMPIRE", "SCORER", "LINE_JUDGE"].includes(p.role))
-            // },
             primaryOfficial: matchPersonnel.find(p => p.isPrimary)?.user || null,
-            isParticipant: requesterId
-                ? match.participants.some((p) => p.userId === requesterId)
-                : false,
+            isParticipant,
+            isOfficial,
         };
     });
 
@@ -3552,7 +4321,6 @@ export const listMatches = async ({
         data: formattedMatches,
     };
 };
-
 
 export const endMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
