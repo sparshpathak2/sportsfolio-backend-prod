@@ -739,25 +739,108 @@ const findBestComeback = async (userId, matches) => {
 // Add this to your stats.service.js (reusing from profile.service.js)
 
 // Reusable function to get high-level sport stats (matches played, wins, etc.)
+// export const getHighLevelSportStats = async (userId, sportCode) => {
+//     // Reuse the getSportStats function from profile service
+//     // You might want to move this to a shared utils file
+//     const calculateSportStats = async (userId, sportCode, gameType = null) => {
+//         const whereClause = {
+//             userId,
+//             match: {
+//                 sportCode,
+//                 status: "COMPLETED"
+//             }
+//         };
+
+//         if (gameType) {
+//             whereClause.match.gameType = gameType;
+//         }
+
+//         const matchParticipants = await prisma.matchParticipant.findMany({
+//             where: whereClause,
+//             include: {
+//                 match: {
+//                     include: {
+//                         parts: true,
+//                         participants: true
+//                     }
+//                 }
+//             }
+//         });
+
+//         const matchesPlayed = matchParticipants.length;
+//         const wins = await prisma.match.count({
+//             where: {
+//                 sportCode,
+//                 status: "COMPLETED",
+//                 ...(gameType && { gameType }),
+//                 OR: [
+//                     { winnerUserId: userId },
+//                     { winnerTeam: { members: { some: { userId } } } }
+//                 ]
+//             }
+//         });
+
+//         const losses = matchesPlayed - wins;
+//         let pointsScored = 0;
+//         let pointsConceded = 0;
+
+//         for (const mp of matchParticipants) {
+//             const match = mp.match;
+//             const userParticipant = match.participants.find(p => p.userId === userId);
+//             if (userParticipant) {
+//                 const userSide = userParticipant.side || userParticipant.position;
+//                 for (const part of match.parts) {
+//                     if (userSide === 1) {
+//                         pointsScored += part.p1Score;
+//                         pointsConceded += part.p2Score;
+//                     } else {
+//                         pointsScored += part.p2Score;
+//                         pointsConceded += part.p1Score;
+//                     }
+//                 }
+//             }
+//         }
+
+//         return {
+//             matchesPlayed,
+//             wins,
+//             losses,
+//             winRate: matchesPlayed > 0 ? Number(((wins / matchesPlayed) * 100).toFixed(1)) : 0,
+//             pointsScored,
+//             pointsConceded,
+//             pointDifference: pointsScored - pointsConceded
+//         };
+//     };
+
+//     const [overall, singles, doubles] = await Promise.all([
+//         calculateSportStats(userId, sportCode),
+//         calculateSportStats(userId, sportCode, "SINGLES"),
+//         calculateSportStats(userId, sportCode, "DOUBLES")
+//     ]);
+
+//     return { overall, singles, doubles };
+// };
+
 export const getHighLevelSportStats = async (userId, sportCode) => {
-    // Reuse the getSportStats function from profile service
-    // You might want to move this to a shared utils file
+    // Reuse the calculateSportStats function
     const calculateSportStats = async (userId, sportCode, gameType = null) => {
         const whereClause = {
             userId,
+            sportCode,
             match: {
-                sportCode,
                 status: "COMPLETED"
             }
         };
 
         if (gameType) {
-            whereClause.match.gameType = gameType;
+            whereClause.gameType = gameType;
         }
 
-        const matchParticipants = await prisma.matchParticipant.findMany({
+        // ✅ Query MatchStats directly, which has the badmintonStats relation
+        const matchStats = await prisma.matchStats.findMany({
             where: whereClause,
             include: {
+                badmintonStats: true,  // ✅ This is the correct relation
                 match: {
                     include: {
                         parts: true,
@@ -767,39 +850,105 @@ export const getHighLevelSportStats = async (userId, sportCode) => {
             }
         });
 
-        const matchesPlayed = matchParticipants.length;
-        const wins = await prisma.match.count({
+        const matchesPlayed = matchStats.length;
+
+        const wins = await prisma.matchStats.count({
             where: {
+                userId,
                 sportCode,
-                status: "COMPLETED",
                 ...(gameType && { gameType }),
-                OR: [
-                    { winnerUserId: userId },
-                    { winnerTeam: { members: { some: { userId } } } }
-                ]
+                result: "WIN"
             }
         });
 
         const losses = matchesPlayed - wins;
+
+        // Calculate points
         let pointsScored = 0;
         let pointsConceded = 0;
 
-        for (const mp of matchParticipants) {
-            const match = mp.match;
-            const userParticipant = match.participants.find(p => p.userId === userId);
-            if (userParticipant) {
+        // 🆕 Shot analysis stats (matches the structure you provided)
+        let totalSmashes = 0;
+        let totalDrops = 0;
+        let totalClears = 0;
+        let totalNetShots = 0;
+        let totalDrives = 0;
+        let totalWinners = 0;
+        let totalUnforcedErrors = 0;
+
+        // Additional stats for extended analysis
+        let totalLifts = 0;
+        let totalForcedErrors = 0;
+        let totalRallies = 0;
+        let totalRalliesWon = 0;
+        let longestRally = 0;
+
+        // Serve stats
+        let totalServes = 0;
+        let totalServeAces = 0;
+        let totalServeErrors = 0;
+
+        // Shot quality
+        let totalForehandShots = 0;
+        let totalBackhandShots = 0;
+        let totalOverheadShots = 0;
+
+        for (const ms of matchStats) {
+            const match = ms.match;
+
+            // Find which side the user was on
+            const userParticipant = match?.participants?.find(p => p.userId === userId);
+
+            // Calculate points
+            if (userParticipant && match?.parts) {
                 const userSide = userParticipant.side || userParticipant.position;
                 for (const part of match.parts) {
                     if (userSide === 1) {
-                        pointsScored += part.p1Score;
-                        pointsConceded += part.p2Score;
+                        pointsScored += part.p1Score || 0;
+                        pointsConceded += part.p2Score || 0;
                     } else {
-                        pointsScored += part.p2Score;
-                        pointsConceded += part.p1Score;
+                        pointsScored += part.p2Score || 0;
+                        pointsConceded += part.p1Score || 0;
                     }
                 }
             }
+
+            // 🆕 Calculate shot stats from BadmintonMatchStats
+            if (ms.badmintonStats) {
+                const stats = ms.badmintonStats;
+                totalSmashes += stats.smashes || 0;
+                totalDrops += stats.drops || 0;
+                totalClears += stats.clears || 0;
+                totalNetShots += stats.netShots || 0;
+                totalDrives += stats.drives || 0;
+                totalLifts += stats.lifts || 0;
+                totalWinners += stats.winners || 0;
+                totalUnforcedErrors += stats.unforcedErrors || 0;
+                totalForcedErrors += stats.forcedErrors || 0;
+                totalRallies += stats.totalRallies || 0;
+                totalRalliesWon += stats.ralliesWon || 0;
+                if ((stats.longestRally || 0) > longestRally) longestRally = stats.longestRally;
+                totalServes += stats.serves || 0;
+                totalServeAces += stats.serveAces || 0;
+                totalServeErrors += stats.serveErrors || 0;
+                totalForehandShots += stats.forehandShots || 0;
+                totalBackhandShots += stats.backhandShots || 0;
+                totalOverheadShots += stats.overheadShots || 0;
+            }
         }
+
+        // Calculate averages and percentages
+        const rallyWinRate = totalRallies > 0 ? Number(((totalRalliesWon / totalRallies) * 100).toFixed(1)) : 0;
+        const serveWinRate = totalServes > 0 ? Number(((totalServeAces / totalServes) * 100).toFixed(1)) : 0;
+
+        // Shot distribution percentages
+        const totalShots = totalSmashes + totalDrops + totalClears + totalNetShots + totalDrives + totalLifts;
+        const smashPercentage = totalShots > 0 ? Number(((totalSmashes / totalShots) * 100).toFixed(1)) : 0;
+        const dropPercentage = totalShots > 0 ? Number(((totalDrops / totalShots) * 100).toFixed(1)) : 0;
+        const clearPercentage = totalShots > 0 ? Number(((totalClears / totalShots) * 100).toFixed(1)) : 0;
+        const netShotPercentage = totalShots > 0 ? Number(((totalNetShots / totalShots) * 100).toFixed(1)) : 0;
+        const drivePercentage = totalShots > 0 ? Number(((totalDrives / totalShots) * 100).toFixed(1)) : 0;
+        const liftPercentage = totalShots > 0 ? Number(((totalLifts / totalShots) * 100).toFixed(1)) : 0;
 
         return {
             matchesPlayed,
@@ -808,7 +957,68 @@ export const getHighLevelSportStats = async (userId, sportCode) => {
             winRate: matchesPlayed > 0 ? Number(((wins / matchesPlayed) * 100).toFixed(1)) : 0,
             pointsScored,
             pointsConceded,
-            pointDifference: pointsScored - pointsConceded
+            pointDifference: pointsScored - pointsConceded,
+            // ✅ Shot analysis (matches the structure from your JSON example)
+            shotAnalysis: {
+                smashes: totalSmashes,
+                drops: totalDrops,
+                clears: totalClears,
+                netShots: totalNetShots,
+                drives: totalDrives,
+                winners: totalWinners,
+                unforcedErrors: totalUnforcedErrors
+            },
+            // 🆕 Extended shot analysis (optional - for more detailed stats)
+            extendedShotAnalysis: {
+                lifts: totalLifts,
+                forcedErrors: totalForcedErrors,
+                shotDistribution: {
+                    smash: smashPercentage,
+                    drop: dropPercentage,
+                    clear: clearPercentage,
+                    netShot: netShotPercentage,
+                    drive: drivePercentage,
+                    lift: liftPercentage
+                }
+            },
+            // 🆕 Winners & Errors
+            winnersAndErrors: {
+                winners: totalWinners,
+                unforcedErrors: totalUnforcedErrors,
+                forcedErrors: totalForcedErrors,
+                winnerErrorRatio: totalWinners > 0 ? Number((totalWinners / (totalUnforcedErrors + totalForcedErrors || 1)).toFixed(2)) : 0
+            },
+            // 🆕 Rally stats
+            rallyStats: {
+                totalRallies,
+                ralliesWon: totalRalliesWon,
+                rallyWinRate,
+                longestRally: longestRally > 0 ? `${Math.floor(longestRally / 60)}m ${longestRally % 60}s` : "N/A",
+                longestRallySeconds: longestRally
+            },
+            // 🆕 Serve stats
+            serveStats: {
+                totalServes,
+                serveAces: totalServeAces,
+                serveErrors: totalServeErrors,
+                serveWinRate,
+                aceRate: totalServes > 0 ? Number(((totalServeAces / totalServes) * 100).toFixed(1)) : 0
+            },
+            // 🆕 Shot quality
+            shotQuality: {
+                forehand: totalForehandShots,
+                backhand: totalBackhandShots,
+                overhead: totalOverheadShots,
+                forehandPercentage: totalForehandShots + totalBackhandShots + totalOverheadShots > 0
+                    ? Number(((totalForehandShots / (totalForehandShots + totalBackhandShots + totalOverheadShots)) * 100).toFixed(1))
+                    : 0,
+                backhandPercentage: totalForehandShots + totalBackhandShots + totalOverheadShots > 0
+                    ? Number(((totalBackhandShots / (totalForehandShots + totalBackhandShots + totalOverheadShots)) * 100).toFixed(1))
+                    : 0,
+                overheadPercentage: totalForehandShots + totalBackhandShots + totalOverheadShots > 0
+                    ? Number(((totalOverheadShots / (totalForehandShots + totalBackhandShots + totalOverheadShots)) * 100).toFixed(1))
+                    : 0
+            }
         };
     };
 
