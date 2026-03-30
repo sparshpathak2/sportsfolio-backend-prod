@@ -77,9 +77,55 @@ export const createUser = async (req, res) => {
 //     return { users, totalCount };
 // };
 
+// export const listUsers = async (req, res) => {
+//     try {
+//         const { page = 1, limit = 20, query, city, tournamentId } = req.query;
+
+//         let cityFilter = city;
+
+//         // If tournamentId is provided, override city with tournament city
+//         if (tournamentId) {
+//             const tournament = await prisma.tournament.findUnique({
+//                 where: { id: tournamentId },
+//                 select: { city: true },
+//             });
+//             if (!tournament) {
+//                 return res.status(404).json({ success: false, message: "TOURNAMENT_NOT_FOUND" });
+//             }
+//             cityFilter = tournament.city;
+//         }
+
+//         let searchQuery = query;
+//         if (!searchQuery || searchQuery.toLowerCase() === "null") {
+//             searchQuery = undefined;
+//         }
+
+
+//         const { users, totalCount } = await userService.listUsers({
+//             city: cityFilter,
+//             // query,
+//             // query: query && query !== "null" ? query : undefined,
+//             query: searchQuery,
+//             page: Number(page),
+//             limit: Number(limit),
+//         });
+
+//         res.json({
+//             success: true,
+//             count: totalCount,
+//             page: Number(page),
+//             limit: Number(limit),
+//             data: users,
+//         });
+//     } catch (error) {
+//         console.error("List Users Error:", error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
+
 export const listUsers = async (req, res) => {
     try {
-        const { page = 1, limit = 20, query, city, tournamentId } = req.query;
+        const { page = 1, limit = 20, query, city, tournamentId, includeArchived } = req.query;
 
         let cityFilter = city;
 
@@ -100,14 +146,12 @@ export const listUsers = async (req, res) => {
             searchQuery = undefined;
         }
 
-
         const { users, totalCount } = await userService.listUsers({
             city: cityFilter,
-            // query,
-            // query: query && query !== "null" ? query : undefined,
             query: searchQuery,
             page: Number(page),
             limit: Number(limit),
+            includeArchived: includeArchived === 'true', // Add this line
         });
 
         res.json({
@@ -124,9 +168,19 @@ export const listUsers = async (req, res) => {
 };
 
 
+// export const getUserById = async (req, res) => {
+//     try {
+//         const user = await userService.getUserById(req.params.id);
+//         res.json({ success: true, data: user });
+//     } catch (error) {
+//         res.status(404).json({ success: false, message: error.message });
+//     }
+// };
+
 export const getUserById = async (req, res) => {
     try {
-        const user = await userService.getUserById(req.params.id);
+        const { includeArchived } = req.query;  // Add this line
+        const user = await userService.getUserById(req.params.id, includeArchived === 'true');  // Pass the parameter
         res.json({ success: true, data: user });
     } catch (error) {
         res.status(404).json({ success: false, message: error.message });
@@ -139,5 +193,37 @@ export const updateUser = async (req, res) => {
         res.json({ success: true, data: user });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
+    }
+};
+
+// NEW: Archive user endpoint
+export const archiveUser = async (req, res) => {
+    try {
+        const user = await userService.archiveUser(req.params.id);
+        res.json({
+            success: true,
+            message: "USER_ARCHIVED_SUCCESSFULLY",
+            data: user
+        });
+    } catch (error) {
+        const status = error.message.includes("NOT_FOUND") ? 404 :
+            error.message.includes("ALREADY_ARCHIVED") ? 400 : 500;
+        res.status(status).json({ success: false, message: error.message });
+    }
+};
+
+// NEW: Restore archived user endpoint
+export const restoreUser = async (req, res) => {
+    try {
+        const user = await userService.restoreUser(req.params.id);
+        res.json({
+            success: true,
+            message: "USER_RESTORED_SUCCESSFULLY",
+            data: user
+        });
+    } catch (error) {
+        const status = error.message.includes("NOT_FOUND") ? 404 :
+            error.message.includes("NOT_ARCHIVED") ? 400 : 500;
+        res.status(status).json({ success: false, message: error.message });
     }
 };

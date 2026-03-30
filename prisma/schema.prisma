@@ -137,6 +137,9 @@ model User {
   // Add this new relation instead:
   personnel Personnel[] // All tournament/match roles in one place
 
+  isArchived Boolean @default(false)
+  archivedAt DateTime?
+
   // ➕ ADD THIS: Back relation for MatchStats
   matchStats   MatchStats[]
   achievements Achievement[]
