@@ -2,6 +2,7 @@ import prisma from "../../lib/prisma.js";
 import { EngineFactory, MatchProgressionFactory } from "../../domains/EngineFactory.js";
 import { calculateMatchPoints, updatePlayerStatsAfterMatch } from "../stats/badmintonStats/stats.service.js";
 import { addPersonnel } from "../personnel/personnel.service.js";
+import { aggregateMatchStats } from "../stats/matchStatsAggregator.service.js";
 
 export const startMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
@@ -278,6 +279,16 @@ export const recordEvent = async ({ matchId, type, payload }) => {
         });
 
         matchCompleted = true;
+
+        // 🆕 AGGREGATE MATCH STATS FROM ALL EVENTS
+        try {
+            console.log(`📊 Aggregating match stats for ${matchId} from all events`);
+            await aggregateMatchStats(matchId);
+            console.log(`✅ Match stats aggregated successfully`);
+        } catch (statsError) {
+            console.error(`❌ Failed to aggregate match stats:`, statsError);
+            // Don't throw - match is still completed
+        }
 
         // 🆕 UPDATE PLAYER STATS
         try {

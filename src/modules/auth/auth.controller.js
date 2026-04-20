@@ -211,134 +211,63 @@ export const requestOtp = async (req, res) => {
 
 // Firebase OTP 
 
-export const verifyOtp = async (req, res) => {
-    try {
-        const { phone, otp } = req.body;
-
-        if (!phone || !otp) {
-            return res.status(400).json({
-                success: false,
-                message: "Phone and OTP required",
-            });
-        }
-
-        // 1️⃣ Find valid OTP
-        const otpRecord = await prisma.oTP.findFirst({
-            where: {
-                phone,
-                verified: false,
-                expiresAt: { gt: new Date() },
-            },
-            orderBy: { createdAt: "desc" },
-        });
-
-        if (!otpRecord || !otpRecord.sessionInfo) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid or expired OTP session",
-            });
-        }
-
-        // 2️⃣ Verify OTP with Firebase
-        const signInResponse = await axios.post(
-            `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${FIREBASE_API_KEY}`,
-            {
-                sessionInfo: otpRecord.sessionInfo,
-                code: otp,
-                phoneNumber: phone,
-            }
-        );
-
-        const idToken = signInResponse.data.idToken;
-
-        // 3️⃣ Verify Firebase ID token
-        const decodedToken = await verifyIdToken(idToken);
-
-        // 4️⃣ Fetch or create user
-        let user = await prisma.user.findUnique({
-            where: { phone },
-        });
-
-        if (!user) {
-            user = await prisma.user.create({
-                data: {
-                    phone,
-                },
-            });
-        }
-
-        // 5️⃣ Create session (7 days)
-        const session = await prisma.session.create({
-            data: {
-                userId: user.id,
-                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            },
-        });
-
-        // 6️⃣ Mark OTPs verified
-        await prisma.oTP.updateMany({
-            where: { phone, verified: false },
-            data: { verified: true },
-        });
-
-        // 7️⃣ Cookie (web)
-        res.cookie("sessionId", session.id, {
-            httpOnly: true,
-            sameSite: "lax",
-            secure: false, // enable true in prod behind HTTPS
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-        });
-
-        // 8️⃣ Response (UNCHANGED)
-        return res.json({
-            success: true,
-            sessionId: session.id,
-            user,
-            firebaseUid: decodedToken.uid,
-        });
-    } catch (error) {
-        console.error("Verify OTP error:", error.response?.data || error.message);
-        return res.status(500).json({
-            success: false,
-            message: "OTP verification failed",
-        });
-    }
-};
-
-// export const verifyFirebaseToken = async (req, res) => {
+// export const verifyOtp = async (req, res) => {
 //     try {
-//         const { token } = req.body;
+//         const { phone, otp } = req.body;
 
-//         if (!token) {
+//         if (!phone || !otp) {
 //             return res.status(400).json({
 //                 success: false,
-//                 message: "Firebase ID token is required",
+//                 message: "Phone and OTP required",
 //             });
 //         }
 
-//         // 1️⃣ Verify the ID token with Firebase Admin SDK
-//         const decodedToken = await verifyIdToken(token);
-//         const phone = decodedToken.phone_number;
+//         // 1️⃣ Find valid OTP
+//         const otpRecord = await prisma.oTP.findFirst({
+//             where: {
+//                 phone,
+//                 verified: false,
+//                 expiresAt: { gt: new Date() },
+//             },
+//             orderBy: { createdAt: "desc" },
+//         });
 
-//         if (!phone) {
+//         if (!otpRecord || !otpRecord.sessionInfo) {
 //             return res.status(400).json({
 //                 success: false,
-//                 message: "Invalid token: No phone number associated",
+//                 message: "Invalid or expired OTP session",
 //             });
 //         }
 
-//         // 2️⃣ Fetch or Create user
+//         // 2️⃣ Verify OTP with Firebase
+//         const signInResponse = await axios.post(
+//             `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPhoneNumber?key=${FIREBASE_API_KEY}`,
+//             {
+//                 sessionInfo: otpRecord.sessionInfo,
+//                 code: otp,
+//                 phoneNumber: phone,
+//             }
+//         );
+
+//         const idToken = signInResponse.data.idToken;
+
+//         // 3️⃣ Verify Firebase ID token
+//         const decodedToken = await verifyIdToken(idToken);
+
+//         // 4️⃣ Fetch or create user
 //         let user = await prisma.user.findUnique({
 //             where: { phone },
 //         });
 
 //         if (!user) {
 //             user = await prisma.user.create({
-//                 data: { phone }
+//                 data: {
+//                     phone,
+//                 },
 //             });
 //         }
 
-//         // 3️⃣ Create session (7 days)
+//         // 5️⃣ Create session (7 days)
 //         const session = await prisma.session.create({
 //             data: {
 //                 userId: user.id,
@@ -346,28 +275,99 @@ export const verifyOtp = async (req, res) => {
 //             },
 //         });
 
-//         // 4️⃣ cookie for web
+//         // 6️⃣ Mark OTPs verified
+//         await prisma.oTP.updateMany({
+//             where: { phone, verified: false },
+//             data: { verified: true },
+//         });
+
+//         // 7️⃣ Cookie (web)
 //         res.cookie("sessionId", session.id, {
 //             httpOnly: true,
 //             sameSite: "lax",
-//             secure: false,
+//             secure: false, // enable true in prod behind HTTPS
 //             maxAge: 7 * 24 * 60 * 60 * 1000,
 //         });
 
+//         // 8️⃣ Response (UNCHANGED)
 //         return res.json({
 //             success: true,
 //             sessionId: session.id,
 //             user,
-//             firebaseUid: decodedToken.uid
+//             firebaseUid: decodedToken.uid,
 //         });
 //     } catch (error) {
-//         console.error("Verify Firebase Token error:", error.message);
-//         return res.status(401).json({
+//         console.error("Verify OTP error:", error.response?.data || error.message);
+//         return res.status(500).json({
 //             success: false,
-//             message: "Token verification failed",
+//             message: "OTP verification failed",
 //         });
 //     }
 // };
+
+export const verifyFirebaseToken = async (req, res) => {
+    try {
+        const { token } = req.body;
+
+        if (!token) {
+            return res.status(400).json({
+                success: false,
+                message: "Firebase ID token is required",
+            });
+        }
+
+        // 1️⃣ Verify the ID token with Firebase Admin SDK
+        const decodedToken = await verifyIdToken(token);
+        const phone = decodedToken.phone_number;
+
+        if (!phone) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid token: No phone number associated",
+            });
+        }
+
+        // 2️⃣ Fetch or Create user
+        let user = await prisma.user.findUnique({
+            where: { phone },
+        });
+
+        if (!user) {
+            user = await prisma.user.create({
+                data: { phone }
+            });
+        }
+
+        // 3️⃣ Create session (7 days)
+        const session = await prisma.session.create({
+            data: {
+                userId: user.id,
+                expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            },
+        });
+
+        // 4️⃣ cookie for web
+        res.cookie("sessionId", session.id, {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: false,
+            maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        return res.json({
+            success: true,
+            sessionId: session.id,
+            user,
+            firebaseUid: decodedToken.uid
+        });
+    } catch (error) {
+        console.error("Verify Firebase Token error:", error.message);
+        return res.status(401).json({
+            success: false,
+            message: "Token verification failed",
+        });
+    }
+};
 
 export const verifyFirebaseToken = async (req, res) => {
     try {
