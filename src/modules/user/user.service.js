@@ -142,17 +142,15 @@ export const createUser = async ({ phone, name, email }) => {
 //     return { users: usersWithSport, totalCount };
 // };
 
-export const listUsers = async ({ city, query, page = 1, limit = 20, includeArchived = false } = {}) => {
+export const listUsers = async ({ city, query, page = 1, limit = 20, includeArchived = false, requestingUserId = null } = {}) => {
     const where = {};
 
-    // Add this line to filter out archived users by default
     if (!includeArchived) {
         where.isArchived = false;
     }
 
     if (city) where.city = city;
 
-    // sanitize query
     const searchQuery = query?.trim();
 
     if (searchQuery) {
@@ -165,35 +163,63 @@ export const listUsers = async ({ city, query, page = 1, limit = 20, includeArch
 
     const skip = (page - 1) * limit;
 
-    // 1️⃣ fetch users with sportProfiles
-    const users = await prisma.user.findMany({
-        where,
-        include: { sportProfiles: true },
-        skip,
-        take: limit,
-        orderBy: { name: "asc" },
+    // Fetch favorite user IDs for the requesting user
+    let favoriteUserIds = new Set();
+    if (requestingUserId) {
+        const favorites = await prisma.favoriteUser.findMany({
+            where: { userId: requestingUserId },
+            select: { favoriteUserId: true },
+        });
+        favoriteUserIds = new Set(favorites.map((f) => f.favoriteUserId));
+    }
+
+    const [users, totalCount] = await Promise.all([
+        prisma.user.findMany({
+            where,
+            select: {
+                id: true,
+                name: true,
+                username: true,
+                profileImage: true,
+                city: true,
+                isArchived: true,
+                sportProfiles: {
+                    select: {
+                        matchesPlayed: true,
+                        wins: true,
+                        losses: true,
+                    },
+                },
+            },
+            skip,
+            take: limit,
+            orderBy: { name: "asc" },
+        }),
+        prisma.user.count({ where }),
+    ]);
+
+    const formattedUsers = users.map((user) => {
+        const totalMatches = user.sportProfiles.reduce((sum, sp) => sum + sp.matchesPlayed, 0);
+        const totalWins = user.sportProfiles.reduce((sum, sp) => sum + sp.wins, 0);
+        const totalLosses = user.sportProfiles.reduce((sum, sp) => sum + sp.losses, 0);
+
+        return {
+            id: user.id,
+            name: user.name,
+            username: user.username,
+            profileImage: user.profileImage,
+            city: user.city,
+            status: user.isArchived ? "ARCHIVED" : "ACTIVE",
+            isFavorite: favoriteUserIds.has(user.id),
+            stats: {
+                totalMatches,
+                totalWins,
+                totalLosses,
+            },
+        };
     });
 
-    // 2️⃣ fetch all sports and create a map
-    const sportMap = await prisma.sport.findMany().then(arr => {
-        const map = {};
-        arr.forEach(s => (map[s.code] = s));
-        return map;
-    });
-
-    // 3️⃣ attach sport details to each user's sportProfiles
-    const usersWithSport = users.map(user => ({
-        ...user,
-        sportProfiles: user.sportProfiles.map(sp => ({
-            ...sp,
-            sport: sportMap[sp.sportCode] || null,
-        })),
-    }));
-
-    // 4️⃣ fetch total count for pagination
-    const totalCount = await prisma.user.count({ where });
-
-    return { users: usersWithSport, totalCount };
+    return { users: formattedUsers, totalCount };
 };
 
 

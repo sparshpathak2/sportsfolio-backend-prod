@@ -151,7 +151,8 @@ export const listUsers = async (req, res) => {
             query: searchQuery,
             page: Number(page),
             limit: Number(limit),
-            includeArchived: includeArchived === 'true', // Add this line
+            includeArchived: includeArchived === 'true',
+            requestingUserId: req.user?.id ?? null,
         });
 
         res.json({
