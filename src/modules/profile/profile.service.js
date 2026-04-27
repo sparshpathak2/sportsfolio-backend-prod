@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma.js";
+import { getBadmintonAchievements } from "../achievement/achievement.service.js";
 
 // Helper to calculate stats for a specific game type
 const calculateSportStats = async (userId, sportCode, gameType = null) => {
@@ -421,8 +422,40 @@ export const getUserProfile = async (userId) => {
             .map(p => p.user)
     }));
 
+    // Aggregate overall stats across all sports
+    const aggregatedStats = sportProfilesWithStats.reduce(
+        (acc, profile) => {
+            const s = profile.stats.overall;
+            acc.matchesPlayed += s.matchesPlayed;
+            acc.wins += s.wins;
+            acc.losses += s.losses;
+            acc.pointsScored += s.pointsScored;
+            acc.pointsConceded += s.pointsConceded;
+            acc.pointDifference += s.pointDifference;
+            return acc;
+        },
+        { matchesPlayed: 0, wins: 0, losses: 0, pointsScored: 0, pointsConceded: 0, pointDifference: 0 }
+    );
+    aggregatedStats.winRate = aggregatedStats.matchesPlayed > 0
+        ? Number(((aggregatedStats.wins / aggregatedStats.matchesPlayed) * 100).toFixed(1))
+        : 0;
+
+    // Fetch sport-specific in-game achievements per sport profile
+    const sportAchievements = {};
+    if (sportCodes.includes("BADMINTON")) {
+        sportAchievements.BADMINTON = await getBadmintonAchievements(userId);
+    }
+
+    // Attach in-game achievements to each sport profile
+    const sportProfilesFinal = sportProfilesWithStats.map((profile) => ({
+        sportCode: profile.sportCode,
+        avatarUrl: profile.avatarUrl,
+        bio: profile.bio,
+        stats: profile.stats,
+        achievements: sportAchievements[profile.sportCode] ?? null,
+    }));
+
     return {
-        // Old structure - exactly as before
         user: {
             id: user.id,
             name: user.name,
@@ -431,14 +464,37 @@ export const getUserProfile = async (userId) => {
             city: user.city,
             profileImage: user.profileImage,
         },
+        stats: aggregatedStats,
+        achievements: {
+            totalTournamentsWon: user.wonTournaments.length,
+            tournamentsWon: user.wonTournaments,
+        },
+        sportProfiles: sportProfilesFinal,
         favorites: {
             teams: user.favoriteTeams.map((fav) => fav.team),
             players: user.favoriteUsers.map((fav) => fav.favoriteUser),
         },
-        // 🆕 Updated: sportProfiles now contain achievements
-        sportProfiles: sportProfilesWithStats,
-        recentMatches
+        recentMatches,
     };
+};
+
+const generateUniqueUsername = async (base) => {
+    // Sanitize: lowercase, replace spaces/special chars with underscore, trim underscores
+    const sanitized = (base || "user")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "_")
+        .replace(/_{2,}/g, "_")
+        .replace(/^_+|_+$/g, "")
+        .slice(0, 20) || "user";
+
+    let username;
+    let exists = true;
+    while (exists) {
+        const suffix = Math.floor(1000 + Math.random() * 9000);
+        username = `${sanitized}_${suffix}`;
+        exists = !!(await prisma.user.findFirst({ where: { username } }));
+    }
+    return username;
 };
 
 export const updateUserProfile = async (userId, data) => {
@@ -449,29 +505,38 @@ export const updateUserProfile = async (userId, data) => {
         throw new Error("NO_FIELDS_TO_UPDATE");
     }
 
-    // Username uniqueness check
+    // Auto-generate username on first update if user has none and didn't provide one
+    let resolvedUsername = username;
+    if (!resolvedUsername) {
+        const currentUser = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { username: true, name: true },
+        });
+        if (!currentUser?.username) {
+            const base = name || currentUser?.name || "user";
+            resolvedUsername = await generateUniqueUsername(base);
+        }
+    }
+
+    // If a username was explicitly provided, silently skip it if already taken
     if (username) {
         const existingUser = await prisma.user.findFirst({
-            where: {
-                username,
-                NOT: { id: userId },
-            },
+            where: { username, NOT: { id: userId } },
         });
-
         if (existingUser) {
-            throw new Error("USERNAME_ALREADY_TAKEN");
+            resolvedUsername = undefined;
         }
     }
 
     // Update in transaction if we have sport profiles to update
     const updatedUser = await prisma.$transaction(async (tx) => {
         // Update user basic info
-        if (name || username || city || profileImage) {
+        if (name || resolvedUsername || city || profileImage) {
             await tx.user.update({
                 where: { id: userId },
                 data: {
                     ...(name !== undefined && { name }),
-                    ...(username !== undefined && { username }),
+                    ...(resolvedUsername !== undefined && { username: resolvedUsername }),
                     ...(city !== undefined && { city }),
                     ...(profileImage !== undefined && { profileImage }),
                 }

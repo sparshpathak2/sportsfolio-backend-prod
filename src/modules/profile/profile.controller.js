@@ -44,10 +44,6 @@ export const updateUserProfile = async (req, res) => {
     } catch (error) {
         console.error("Update profile error:", error);
 
-        if (error.message === "USERNAME_ALREADY_TAKEN") {
-            return res.status(409).json({ message: "Username already taken" });
-        }
-
         if (error.message === "NO_FIELDS_TO_UPDATE") {
             return res.status(400).json({ message: "No fields provided to update" });
         }

@@ -1,4 +1,5 @@
 import prisma from "../../lib/prisma.js";
+import { getBadmintonAchievements } from "../achievement/achievement.service.js";
 
 // export const createUser = async ({ phone, email, name }) => {
 //     if (!phone) throw new Error("PHONE_REQUIRED");
@@ -271,20 +272,19 @@ export const getUserById = async (id, includeArchived = false) => {
 
     // 1️⃣ Fetch user + sportProfiles + sessions + favoriteTeams/favoriteUsers
     const user = await prisma.user.findFirst({
-        where,  // Changed from findUnique to findFirst to support additional where conditions
+        where,
         select: {
             id: true,
             name: true,
             username: true,
             phone: true,
             city: true,
-            isArchived: true,     // Add this to know if user is archived
-            archivedAt: true,     // Add this to know when they were archived
+            isArchived: true,
+            archivedAt: true,
 
-            // sportProfiles without any invalid include
             sportProfiles: true,
 
-            sessions: true,
+            // sessions: true,
 
             favoriteTeams: {
                 select: {
@@ -312,12 +312,51 @@ export const getUserById = async (id, includeArchived = false) => {
                     },
                 },
             },
+
+            wonTournaments: {
+                where: { status: "COMPLETED" },
+                select: {
+                    id: true,
+                    name: true,
+                    sportCode: true,
+                    tournamentType: true,
+                    startDate: true,
+                    endDate: true,
+                },
+            },
+
+            matchParticipations: {
+                where: { match: { status: "COMPLETED" } },
+                select: {
+                    match: {
+                        select: {
+                            id: true,
+                            sportCode: true,
+                            gameType: true,
+                            status: true,
+                            completedAt: true,
+                            winnerUserId: true,
+                            participants: {
+                                select: {
+                                    userId: true,
+                                    side: true,
+                                    position: true,
+                                },
+                            },
+                            parts: {
+                                select: { p1Score: true, p2Score: true },
+                            },
+                        },
+                    },
+                },
+                orderBy: { match: { completedAt: "desc" } },
+            },
         },
     });
 
     if (!user) throw new Error("USER_NOT_FOUND");
 
-    // 2️⃣ Optionally: attach full Sport info to sportProfiles
+    // 2️⃣ Attach full Sport info to sportProfiles
     const sportCodes = user.sportProfiles.map((sp) => sp.sportCode);
     const sports = await prisma.sport.findMany({
         where: { code: { in: sportCodes } },
@@ -325,14 +364,113 @@ export const getUserById = async (id, includeArchived = false) => {
     const sportMap = {};
     sports.forEach((s) => (sportMap[s.code] = s));
 
-    const sportProfilesWithSport = user.sportProfiles.map((sp) => ({
-        ...sp,
-        sport: sportMap[sp.sportCode] || null,
-    }));
+    // 3️⃣ Compute per-sport stats from match participations
+    const matchesBySport = {};
+    for (const mp of user.matchParticipations) {
+        const m = mp.match;
+        if (!matchesBySport[m.sportCode]) matchesBySport[m.sportCode] = [];
+        matchesBySport[m.sportCode].push(m);
+    }
+
+    const computeStats = (matches) => {
+        const matchesPlayed = matches.length;
+        let wins = 0, pointsScored = 0, pointsConceded = 0;
+        for (const m of matches) {
+            if (m.winnerUserId === id) wins++;
+            const up = m.participants.find((p) => p.userId === id);
+            const side = up?.side ?? up?.position;
+            for (const part of m.parts) {
+                if (side === 1) {
+                    pointsScored += part.p1Score;
+                    pointsConceded += part.p2Score;
+                } else {
+                    pointsScored += part.p2Score;
+                    pointsConceded += part.p1Score;
+                }
+            }
+        }
+        const losses = matchesPlayed - wins;
+        return {
+            matchesPlayed,
+            wins,
+            losses,
+            winRate: matchesPlayed > 0 ? Number(((wins / matchesPlayed) * 100).toFixed(1)) : 0,
+            pointsScored,
+            pointsConceded,
+            pointDifference: pointsScored - pointsConceded,
+        };
+    };
+
+    const sportProfilesEnriched = user.sportProfiles.map((sp) => {
+        const allMatches = matchesBySport[sp.sportCode] || [];
+        const singles = allMatches.filter((m) => m.gameType === "SINGLES");
+        const doubles = allMatches.filter((m) => m.gameType === "DOUBLES");
+        return {
+            ...sp,
+            sport: sportMap[sp.sportCode] || null,
+            stats: {
+                overall: computeStats(allMatches),
+                singles: computeStats(singles),
+                doubles: computeStats(doubles),
+            },
+        };
+    });
+
+    // 4️⃣ Aggregate overall stats across all sports
+    const aggregatedStats = sportProfilesEnriched.reduce(
+        (acc, sp) => {
+            const s = sp.stats.overall;
+            acc.matchesPlayed += s.matchesPlayed;
+            acc.wins += s.wins;
+            acc.losses += s.losses;
+            acc.pointsScored += s.pointsScored;
+            acc.pointsConceded += s.pointsConceded;
+            acc.pointDifference += s.pointDifference;
+            return acc;
+        },
+        { matchesPlayed: 0, wins: 0, losses: 0, pointsScored: 0, pointsConceded: 0, pointDifference: 0 }
+    );
+    aggregatedStats.winRate = aggregatedStats.matchesPlayed > 0
+        ? Number(((aggregatedStats.wins / aggregatedStats.matchesPlayed) * 100).toFixed(1))
+        : 0;
+
+    const { matchParticipations, wonTournaments, favoriteTeams, favoriteUsers, sessions, sportProfiles: _sp, ...userCore } = user;
+
+    // Fetch sport-specific achievements
+    const sportAchievements = {};
+    const hasBadminton = sportProfilesEnriched.some((sp) => sp.sportCode === "BADMINTON");
+    if (hasBadminton) {
+        sportAchievements.BADMINTON = await getBadmintonAchievements(id);
+    }
 
     return {
-        ...user,
-        sportProfiles: sportProfilesWithSport,
+        profile: {
+            id: userCore.id,
+            name: userCore.name,
+            username: userCore.username,
+            phone: userCore.phone,
+            city: userCore.city,
+            isArchived: userCore.isArchived,
+            archivedAt: userCore.archivedAt,
+        },
+        stats: aggregatedStats,
+        achievements: {
+            totalTournamentsWon: wonTournaments.length,
+            tournamentsWon: wonTournaments,
+        },
+        sportProfiles: sportProfilesEnriched.map((sp) => ({
+            sportCode: sp.sportCode,
+            sport: sp.sport,
+            avatarUrl: sp.avatarUrl,
+            bio: sp.bio,
+            stats: sp.stats,
+            achievements: sportAchievements[sp.sportCode] ?? null,
+        })),
+        favorites: {
+            teams: favoriteTeams.map((f) => f.team),
+            players: favoriteUsers.map((f) => f.favoriteUser),
+        },
+        sessions,
     };
 };
 
