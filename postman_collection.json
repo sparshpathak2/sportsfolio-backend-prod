@@ -1,11 +1,69 @@
 {
     "info": {
-        "_postman_id": "83c7482b-8772-4d1a-96e5-4f7f6f59871e",
-        "name": "Sportsfolio Backend API",
-        "description": "Complete collection for Sportsfolio Backend including Auth, Teams, Tournaments, Matches, and more.",
+        "_postman_id": "sportsfolio-backend-v3-2026",
+        "name": "Sportsfolio Backend API v3",
+        "description": "Complete API collection — 70+ endpoints.\n\nVariables:\n  baseUrl = http://localhost:3001\n  sessionId = token from verify-otp\n  userId, teamId, tournamentId, matchId, invitationId, locationId, achievementId, requestId",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:3001"
+        },
+        {
+            "key": "sessionId",
+            "value": ""
+        },
+        {
+            "key": "userId",
+            "value": ""
+        },
+        {
+            "key": "teamId",
+            "value": ""
+        },
+        {
+            "key": "tournamentId",
+            "value": ""
+        },
+        {
+            "key": "matchId",
+            "value": ""
+        },
+        {
+            "key": "invitationId",
+            "value": ""
+        },
+        {
+            "key": "locationId",
+            "value": ""
+        },
+        {
+            "key": "achievementId",
+            "value": ""
+        },
+        {
+            "key": "requestId",
+            "value": ""
+        }
+    ],
     "item": [
+        {
+            "name": "Health Check",
+            "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                    "raw": "{{baseUrl}}/health",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "health"
+                    ]
+                }
+            }
+        },
         {
             "name": "Auth",
             "item": [
@@ -14,15 +72,6 @@
                     "request": {
                         "method": "POST",
                         "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"phone\": \"+919876543210\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
                         "url": {
                             "raw": "{{baseUrl}}/api/auth/request-otp",
                             "host": [
@@ -33,6 +82,15 @@
                                 "auth",
                                 "request-otp"
                             ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"+919876543210\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         }
                     }
                 },
@@ -41,15 +99,6 @@
                     "request": {
                         "method": "POST",
                         "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"phone\": \"+919876543210\",\n    \"code\": \"123456\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
                         "url": {
                             "raw": "{{baseUrl}}/api/auth/verify-otp",
                             "host": [
@@ -60,6 +109,15 @@
                                 "auth",
                                 "verify-otp"
                             ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"+919876543210\",\n    \"code\": \"123456\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         }
                     }
                 },
@@ -67,7 +125,12 @@
                     "name": "Verify Session",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/auth/verify-session",
                             "host": [
@@ -80,67 +143,49 @@
                             ]
                         }
                     }
-                }
-            ]
-        },
-        {
-            "name": "User & Profile",
-            "item": [
+                },
                 {
-                    "name": "Get Profile",
+                    "name": "Verify Firebase Token",
                     "request": {
-                        "method": "GET",
+                        "method": "POST",
                         "header": [],
                         "url": {
-                            "raw": "{{baseUrl}}/api/profiles/:userId",
+                            "raw": "{{baseUrl}}/api/auth/verify-token",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
-                                "profiles",
-                                ":userId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "userId",
-                                    "value": ""
-                                }
+                                "auth",
+                                "verify-token"
                             ]
-                        }
-                    }
-                },
-                {
-                    "name": "Update Profile",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [],
+                        },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"name\": \"John Doe\",\n    \"city\": \"Mumbai\",\n    \"profileImage\": \"url...\"\n}",
+                            "raw": "{\n    \"idToken\": \"<firebase-id-token>\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
                                 }
                             }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/profiles",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "profiles"
-                            ]
                         }
                     }
-                },
+                }
+            ]
+        },
+        {
+            "name": "Users",
+            "item": [
                 {
-                    "name": "List Users",
+                    "name": "Create User",
                     "request": {
-                        "method": "GET",
-                        "header": [],
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/users",
                             "host": [
@@ -150,8 +195,922 @@
                                 "api",
                                 "users"
                             ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"phone\": \"+919876543210\",\n    \"name\": \"Rahul Sharma\",\n    \"email\": \"rahul@example.com\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         }
                     }
+                },
+                {
+                    "name": "List Users",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "query",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "city",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "tournamentId",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "includeArchived",
+                                    "value": "false",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get User by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/{{userId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                "{{userId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update User",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/{{userId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                "{{userId}}"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Rahul Sharma\",\n    \"email\": \"rahul@example.com\",\n    \"city\": \"Mumbai\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Archive User",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/{{userId}}/archive",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                "{{userId}}",
+                                "archive"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Restore User",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/{{userId}}/restore",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                "{{userId}}",
+                                "restore"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get User Invitations",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/users/{{userId}}/invitations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "users",
+                                "{{userId}}",
+                                "invitations"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Profile",
+            "item": [
+                {
+                    "name": "Get User Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/profiles/{{userId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "profiles",
+                                "{{userId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update My Profile",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/profiles",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "profiles"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Rahul Sharma\",\n    \"city\": \"Mumbai\",\n    \"profileImage\": \"https://example.com/image.jpg\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Sports",
+            "item": [
+                {
+                    "name": "Create Sport",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/sports",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "sports"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"code\": \"BADMINTON\",\n    \"name\": \"Badminton\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "List Sports",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/sports",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "sports"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Sport by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/sports/:sportId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "sports",
+                                ":sportId"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Sport",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/sports/:sportId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "sports",
+                                ":sportId"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Badminton\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Sport",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/sports/:sportId",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "sports",
+                                ":sportId"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Locations",
+            "item": [
+                {
+                    "name": "Create Location",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Badminton Hall A\",\n    \"city\": \"Mumbai\",\n    \"address\": \"123 Sports Complex, Andheri\",\n    \"latitude\": 19.1197,\n    \"longitude\": 72.8471\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Get Cities",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations/cities",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations",
+                                "cities"
+                            ],
+                            "query": [
+                                {
+                                    "key": "query",
+                                    "value": "mum",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "List Locations",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Location by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations/{{locationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations",
+                                "{{locationId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Location",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/locations/{{locationId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "locations",
+                                "{{locationId}}"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Badminton Hall A (Updated)\",\n    \"city\": \"Mumbai\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Teams",
+            "item": [
+                {
+                    "name": "Create Team",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Smash Brothers\",\n    \"sportCode\": \"BADMINTON\",\n    \"city\": \"Mumbai\",\n    \"logo\": \"https://example.com/logo.png\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "List Teams",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "query",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "city",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "sportCode",
+                                    "value": "BADMINTON",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "tournamentId",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "scope",
+                                    "value": "my",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Team by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams",
+                                "{{teamId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Team",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams",
+                                "{{teamId}}"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Smash Brothers Updated\",\n    \"city\": \"Delhi\",\n    \"logo\": \"https://example.com/logo2.png\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Team",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/teams/{{teamId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "teams",
+                                "{{teamId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Members",
+                    "item": [
+                        {
+                            "name": "Join Team",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/members",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "members"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "List Team Members",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/members",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "members"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Remove Team Member",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/members/{{userId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "members",
+                                        "{{userId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Invitations",
+                    "item": [
+                        {
+                            "name": "Create Team Invitation",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/invitations",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "invitations"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"type\": \"TEAM\",\n    \"playerId\": \"{{userId}}\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "List Team Invitations",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/invitations",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "invitations"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Accept Team Invitation",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/invitations/{{invitationId}}/accept",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "invitations",
+                                        "{{invitationId}}",
+                                        "accept"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Decline Team Invitation",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/invitations/{{invitationId}}/decline",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "invitations",
+                                        "{{invitationId}}",
+                                        "decline"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Delete Team Invitation",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/teams/{{teamId}}/invitations/{{invitationId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "teams",
+                                        "{{teamId}}",
+                                        "invitations",
+                                        "{{invitationId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -159,10 +1118,15 @@
             "name": "Tournaments",
             "item": [
                 {
-                    "name": "List All Tournaments",
+                    "name": "Create Tournament",
                     "request": {
-                        "method": "GET",
-                        "header": [],
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/tournaments",
                             "host": [
@@ -172,6 +1136,63 @@
                                 "api",
                                 "tournaments"
                             ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Mumbai Badminton Open 2026\",\n    \"sportCode\": \"BADMINTON\",\n    \"tournamentType\": \"SINGLE_ELIMINATION\",\n    \"startDate\": \"2026-05-01T09:00:00.000Z\",\n    \"endDate\": \"2026-05-03T18:00:00.000Z\",\n    \"scheduleType\": \"FIXED\",\n    \"isPublic\": true,\n    \"entryFee\": 500,\n    \"city\": \"Mumbai\",\n    \"locations\": [\n        {\n            \"locationId\": \"{{locationId}}\",\n            \"courtCount\": 4\n        }\n    ],\n    \"rules\": {\n        \"playAreas\": 4,\n        \"partsPerMatch\": 3,\n        \"gameType\": \"SINGLES\",\n        \"maxParticipants\": 32\n    },\n    \"personnel\": [\n        {\n            \"userId\": \"{{userId}}\",\n            \"role\": \"ORGANIZER\",\n            \"isPrimary\": true\n        }\n    ]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "List Tournaments",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "upcoming",
+                                    "disabled": true,
+                                    "description": "upcoming | ongoing | completed"
+                                },
+                                {
+                                    "key": "scope",
+                                    "value": "my",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "visibility",
+                                    "value": "public",
+                                    "disabled": true
+                                }
+                            ]
                         }
                     }
                 },
@@ -179,7 +1200,12 @@
                     "name": "My Tournaments",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/tournaments/my",
                             "host": [
@@ -197,7 +1223,12 @@
                     "name": "Public Tournaments",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/tournaments/public",
                             "host": [
@@ -212,108 +1243,547 @@
                     }
                 },
                 {
-                    "name": "Create Tournament",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"name\": \"Elite Badminton League\",\n    \"sportCode\": \"BADMINTON\",\n    \"tournamentType\": \"KNOCKOUT\",\n    \"startDate\": \"2026-02-15T09:00:00Z\",\n    \"city\": \"Mumbai\",\n    \"isPublic\": true,\n    \"entryFee\": 500,\n    \"locations\": [\n        {\n            \"name\": \"Stadium A\",\n            \"address\": \"Worli\"\n        }\n    ],\n    \"rules\": {\n        \"playAreas\": 2,\n        \"partsPerMatch\": 3,\n        \"gameType\": \"SINGLES\",\n        \"maxParticipants\": 16\n    }\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/tournaments",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "tournaments"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Get Tournament Details",
+                    "name": "Get Tournament",
                     "request": {
                         "method": "GET",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId",
+                            "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
                                 "tournaments",
-                                ":tournamentId"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "tournamentId",
-                                    "value": ""
-                                }
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Teams",
-            "item": [
-                {
-                    "name": "Create Team",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"name\": \"Mumbai Rockets\",\n    \"sportCode\": \"BADMINTON\",\n    \"logo\": \"https://your-s3-bucket.s3.amazonaws.com/logos/team1.png\",\n    \"city\": \"Mumbai\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/teams",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "teams"
+                                "{{tournamentId}}"
                             ]
                         }
                     }
                 },
                 {
-                    "name": "List Teams",
+                    "name": "Update Tournament",
                     "request": {
-                        "method": "GET",
-                        "header": [],
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/teams?sportCode=BADMINTON",
+                            "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
-                                "teams"
-                            ],
-                            "query": [
-                                {
-                                    "key": "sportCode",
-                                    "value": "BADMINTON"
+                                "tournaments",
+                                "{{tournamentId}}"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"name\": \"Mumbai Badminton Open 2026 (Updated)\",\n    \"isPublic\": true,\n    \"entryFee\": 600\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
                                 }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Tournament",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                "{{tournamentId}}"
                             ]
                         }
                     }
+                },
+                {
+                    "name": "Upsert Tournament Rules",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/rules",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                "{{tournamentId}}",
+                                "rules"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"playAreas\": 4,\n    \"partsPerMatch\": 3,\n    \"gameType\": \"SINGLES\",\n    \"maxParticipants\": 32,\n    \"daysOfWeek\": [\"SATURDAY\", \"SUNDAY\"]\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Run Matchmaking",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/matchmaking",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                "{{tournamentId}}",
+                                "matchmaking"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Advance Tournament Round",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/rounds/next",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "tournaments",
+                                "{{tournamentId}}",
+                                "rounds",
+                                "next"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Participants",
+                    "item": [
+                        {
+                            "name": "Add Participant",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/participants",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "participants"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"tournamentId\": \"{{tournamentId}}\",\n    \"participantType\": \"SINGLES\",\n    \"playerId\": \"{{userId}}\",\n    \"seed\": 1\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "List Participants",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/participants/{{tournamentId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "participants",
+                                        "{{tournamentId}}"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Remove Participant",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/participants/:participantId",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "participants",
+                                        ":participantId"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Join with Code",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/participants/join/:joinCode",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "participants",
+                                        "join",
+                                        ":joinCode"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"playerId\": \"{{userId}}\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "Join Direct",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/participants/join/",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "participants",
+                                        "join",
+                                        ""
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Invitations",
+                    "item": [
+                        {
+                            "name": "Create Tournament Invitation",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/invitations",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "invitations"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"type\": \"TOURNAMENT\",\n    \"playerId\": \"{{userId}}\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "List Tournament Invitations",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/invitations",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "invitations"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "status",
+                                            "value": "PENDING",
+                                            "disabled": true,
+                                            "description": "PENDING | ACCEPTED | DECLINED"
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Accept Tournament Invitation",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/invitations/{{invitationId}}/accept",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "invitations",
+                                        "{{invitationId}}",
+                                        "accept"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Decline Tournament Invitation",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/invitations/{{invitationId}}/decline",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "invitations",
+                                        "{{invitationId}}",
+                                        "decline"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Delete Tournament Invitation",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/invitations/{{invitationId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "invitations",
+                                        "{{invitationId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Matches (nested in Tournament)",
+                    "item": [
+                        {
+                            "name": "Create Match in Tournament",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/matches",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "matches"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"name\": \"QF Match 1\",\n    \"sportCode\": \"BADMINTON\",\n    \"gameType\": \"SINGLES\",\n    \"partsCount\": 3,\n    \"locations\": [\n        {\n            \"locationId\": \"{{locationId}}\"\n        }\n    ],\n    \"participantIds\": [\n        \"<player1-userId>\",\n        \"<player2-userId>\"\n    ],\n    \"servingUserId\": \"<player1-userId>\"\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "List Matches in Tournament",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/matches",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "matches"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Get Match in Tournament",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/matches/{{matchId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "matches",
+                                        "{{matchId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -321,36 +1791,103 @@
             "name": "Matches",
             "item": [
                 {
-                    "name": "Record Match Event",
+                    "name": "Create Quick Match",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "matches"
+                            ]
+                        },
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n    \"type\": \"SCORE_UPDATE\",\n    \"payload\": {\n        \"p1Score\": 21,\n        \"p2Score\": 19\n    }\n}",
+                            "raw": "{\n    \"name\": \"Friendly Match\",\n    \"sportCode\": \"BADMINTON\",\n    \"gameType\": \"SINGLES\",\n    \"partsCount\": 3,\n    \"locations\": [\n        {\n            \"locationId\": \"{{locationId}}\"\n        }\n    ],\n    \"participantIds\": [\n        \"<player1-userId>\",\n        \"<player2-userId>\"\n    ],\n    \"servingUserId\": \"<player1-userId>\"\n}",
                             "options": {
                                 "raw": {
                                     "language": "json"
                                 }
                             }
-                        },
+                        }
+                    }
+                },
+                {
+                    "name": "List Matches",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/matches/:matchId/events/record",
+                            "raw": "{{baseUrl}}/api/matches?page=1&limit=10",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "matches"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "tournamentId",
+                                    "value": "",
+                                    "disabled": true
+                                },
+                                {
+                                    "key": "status",
+                                    "value": "SCHEDULED",
+                                    "disabled": true,
+                                    "description": "SCHEDULED | ONGOING | COMPLETED"
+                                },
+                                {
+                                    "key": "scope",
+                                    "value": "my",
+                                    "disabled": true
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Match by ID",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches/{{matchId}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
                                 "matches",
-                                ":matchId",
-                                "events",
-                                "record"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "matchId",
-                                    "value": ""
-                                }
+                                "{{matchId}}"
                             ]
                         }
                     }
@@ -359,24 +1896,549 @@
                     "name": "Start Match",
                     "request": {
                         "method": "POST",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/matches/:matchId/start",
+                            "raw": "{{baseUrl}}/api/matches/{{matchId}}/start",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
                                 "matches",
-                                ":matchId",
+                                "{{matchId}}",
                                 "start"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Record Match Event",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches/{{matchId}}/events/record",
+                            "host": [
+                                "{{baseUrl}}"
                             ],
-                            "variable": [
+                            "path": [
+                                "api",
+                                "matches",
+                                "{{matchId}}",
+                                "events",
+                                "record"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"type\": \"SCORE_POINT\",\n    \"payload\": {\n        \"scoringParticipantId\": \"<participantId>\",\n        \"shotType\": \"SMASH\"\n    }\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Get Live Match State",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches/{{matchId}}/live",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "matches",
+                                "{{matchId}}",
+                                "live"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "End Match",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/matches/{{matchId}}/end",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "matches",
+                                "{{matchId}}",
+                                "end"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Personnel",
+            "item": [
+                {
+                    "name": "Get Available Personnel",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/personnel/available?entityType=TOURNAMENT",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "personnel",
+                                "available"
+                            ],
+                            "query": [
                                 {
-                                    "key": "matchId",
-                                    "value": ""
+                                    "key": "entityType",
+                                    "value": "TOURNAMENT",
+                                    "description": "TOURNAMENT | MATCH"
+                                },
+                                {
+                                    "key": "role",
+                                    "value": "ORGANIZER",
+                                    "disabled": true,
+                                    "description": "ORGANIZER | REFEREE"
+                                },
+                                {
+                                    "key": "search",
+                                    "value": "",
+                                    "disabled": true
                                 }
                             ]
+                        }
+                    }
+                },
+                {
+                    "name": "Tournament Personnel",
+                    "item": [
+                        {
+                            "name": "Add Tournament Personnel",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/tournaments/{{tournamentId}}/personnel",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "personnel"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"personnel\": [\n        {\n            \"userId\": \"{{userId}}\",\n            \"role\": \"REFEREE\",\n            \"isPrimary\": false\n        }\n    ]\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "Get Tournament Personnel",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/tournaments/{{tournamentId}}/personnel",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "personnel"
+                                    ],
+                                    "query": [
+                                        {
+                                            "key": "role",
+                                            "value": "REFEREE",
+                                            "disabled": true
+                                        }
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Update Tournament Personnel",
+                            "request": {
+                                "method": "PUT",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/tournaments/{{tournamentId}}/personnel/{{userId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "personnel",
+                                        "{{userId}}"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"role\": \"ORGANIZER\",\n    \"isPrimary\": true\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "Remove Tournament Personnel",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/tournaments/{{tournamentId}}/personnel/{{userId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "tournaments",
+                                        "{{tournamentId}}",
+                                        "personnel",
+                                        "{{userId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Match Personnel",
+                    "item": [
+                        {
+                            "name": "Add Match Personnel",
+                            "request": {
+                                "method": "POST",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/matches/{{matchId}}/personnel",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "matches",
+                                        "{{matchId}}",
+                                        "personnel"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"personnel\": [\n        {\n            \"userId\": \"{{userId}}\",\n            \"role\": \"REFEREE\",\n            \"isPrimary\": true\n        }\n    ]\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "Get Match Personnel",
+                            "request": {
+                                "method": "GET",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/matches/{{matchId}}/personnel",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "matches",
+                                        "{{matchId}}",
+                                        "personnel"
+                                    ]
+                                }
+                            }
+                        },
+                        {
+                            "name": "Update Match Personnel",
+                            "request": {
+                                "method": "PUT",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/matches/{{matchId}}/personnel/{{userId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "matches",
+                                        "{{matchId}}",
+                                        "personnel",
+                                        "{{userId}}"
+                                    ]
+                                },
+                                "body": {
+                                    "mode": "raw",
+                                    "raw": "{\n    \"role\": \"REFEREE\",\n    \"isPrimary\": true\n}",
+                                    "options": {
+                                        "raw": {
+                                            "language": "json"
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        {
+                            "name": "Remove Match Personnel",
+                            "request": {
+                                "method": "DELETE",
+                                "header": [
+                                    {
+                                        "key": "x-session-id",
+                                        "value": "{{sessionId}}"
+                                    }
+                                ],
+                                "url": {
+                                    "raw": "{{baseUrl}}/api/personnel/matches/{{matchId}}/personnel/{{userId}}",
+                                    "host": [
+                                        "{{baseUrl}}"
+                                    ],
+                                    "path": [
+                                        "api",
+                                        "personnel",
+                                        "matches",
+                                        "{{matchId}}",
+                                        "personnel",
+                                        "{{userId}}"
+                                    ]
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "name": "Get User Personnel Assignments",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/personnel/users/{{userId}}/personnel",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "personnel",
+                                "users",
+                                "{{userId}}",
+                                "personnel"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Requests",
+            "item": [
+                {
+                    "name": "Create Tournament Request",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"tournamentId\": \"{{tournamentId}}\",\n    \"teamId\": null,\n    \"message\": \"I would like to participate in this tournament.\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "My Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests/my-requests",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests",
+                                "my-requests"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Tournament Requests",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests/tournament/{{tournamentId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests",
+                                "tournament",
+                                "{{tournamentId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Respond to Request",
+                    "request": {
+                        "method": "PATCH",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/requests/{{requestId}}/respond",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "requests",
+                                "{{requestId}}",
+                                "respond"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"status\": \"ACCEPTED\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
                         }
                     }
                 }
@@ -389,17 +2451,12 @@
                     "name": "Upload Image",
                     "request": {
                         "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "formdata",
-                            "formdata": [
-                                {
-                                    "key": "image",
-                                    "type": "file",
-                                    "src": []
-                                }
-                            ]
-                        },
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
                             "raw": "{{baseUrl}}/api/assets/upload",
                             "host": [
@@ -410,324 +2467,525 @@
                                 "assets",
                                 "upload"
                             ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Locations",
-            "item": [
-                {
-                    "name": "List Locations",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/locations",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "locations"
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Create Location",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"name\": \"Olympic Stadium\",\n    \"address\": \"Worli Naka\",\n    \"city\": \"Mumbai\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
                         },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/locations",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "locations"
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Sports",
-            "item": [
-                {
-                    "name": "List Sports",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/sports",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "sports"
-                            ]
-                        }
-                    }
-                }
-            ]
-        },
-        {
-            "name": "Join Requests",
-            "item": [
-                {
-                    "name": "Send Join Request",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
                         "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"tournamentId\": \"uuid\",\n    \"teamId\": null,\n    \"message\": \"I want to join!\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/requests",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "requests"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "List My Sent Requests",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/requests/my-requests",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "requests",
-                                "my-requests"
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "List Tournament Requests (Organizer)",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/requests/tournament/:tournamentId",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "requests",
-                                "tournament",
-                                ":tournamentId"
-                            ],
-                            "variable": [
+                            "mode": "formdata",
+                            "formdata": [
                                 {
-                                    "key": "tournamentId",
-                                    "value": ""
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                },
-                {
-                    "name": "Respond to Request (Accept/Reject)",
-                    "request": {
-                        "method": "PATCH",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"status\": \"ACCEPTED\"\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/requests/:requestId/respond",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "requests",
-                                ":requestId",
-                                "respond"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "requestId",
-                                    "value": ""
-                                }
-                            ]
-                        }
-                    },
-                    "response": []
-                }
-            ]
-        },
-        {
-            "name": "Invitations",
-            "item": [
-                {
-                    "name": "Invite to Tournament",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "body": {
-                            "mode": "raw",
-                            "raw": "{\n    \"type\": \"PLAYER\",\n    \"playerId\": \"uuid\",\n    \"teamId\": null\n}",
-                            "options": {
-                                "raw": {
-                                    "language": "json"
-                                }
-                            }
-                        },
-                        "url": {
-                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "tournaments",
-                                ":tournamentId",
-                                "invitations"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "tournamentId",
-                                    "value": ""
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "List Tournament Invitations",
-                    "request": {
-                        "method": "GET",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "tournaments",
-                                ":tournamentId",
-                                "invitations"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "tournamentId",
-                                    "value": ""
-                                }
-                            ]
-                        }
-                    }
-                },
-                {
-                    "name": "Accept Invitation",
-                    "request": {
-                        "method": "POST",
-                        "header": [],
-                        "url": {
-                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations/:invitationId/accept",
-                            "host": [
-                                "{{baseUrl}}"
-                            ],
-                            "path": [
-                                "api",
-                                "tournaments",
-                                ":tournamentId",
-                                "invitations",
-                                ":invitationId",
-                                "accept"
-                            ],
-                            "variable": [
-                                {
-                                    "key": "tournamentId",
-                                    "value": ""
+                                    "key": "image",
+                                    "type": "file",
+                                    "src": "",
+                                    "description": "Image file (jpg, png, webp)"
                                 },
                                 {
-                                    "key": "invitationId",
-                                    "value": ""
+                                    "key": "entityType",
+                                    "value": "USER",
+                                    "type": "text",
+                                    "description": "USER | TEAM | TOURNAMENT"
+                                },
+                                {
+                                    "key": "entityId",
+                                    "value": "{{userId}}",
+                                    "type": "text"
+                                },
+                                {
+                                    "key": "type",
+                                    "value": "PROFILE_IMAGE",
+                                    "type": "text",
+                                    "description": "PROFILE_IMAGE | LOGO | BANNER"
                                 }
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Favorites",
+            "item": [
+                {
+                    "name": "Add Favorite Team",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/favorites/teams",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "favorites",
+                                "teams"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"teamId\": \"{{teamId}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
+                                }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Get Favorite Teams",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/favorites/teams",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "favorites",
+                                "teams"
                             ]
                         }
                     }
                 },
                 {
-                    "name": "Delete Invitation",
+                    "name": "Remove Favorite Team",
                     "request": {
                         "method": "DELETE",
-                        "header": [],
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
                         "url": {
-                            "raw": "{{baseUrl}}/api/tournaments/:tournamentId/invitations/:invitationId",
+                            "raw": "{{baseUrl}}/api/favorites/teams/{{teamId}}",
                             "host": [
                                 "{{baseUrl}}"
                             ],
                             "path": [
                                 "api",
-                                "tournaments",
-                                ":tournamentId",
-                                "invitations",
-                                ":invitationId"
+                                "favorites",
+                                "teams",
+                                "{{teamId}}"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Add Favorite Player",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/favorites/players",
+                            "host": [
+                                "{{baseUrl}}"
                             ],
-                            "variable": [
-                                {
-                                    "key": "tournamentId",
-                                    "value": ""
-                                },
-                                {
-                                    "key": "invitationId",
-                                    "value": ""
+                            "path": [
+                                "api",
+                                "favorites",
+                                "players"
+                            ]
+                        },
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n    \"favoriteUserId\": \"{{userId}}\"\n}",
+                            "options": {
+                                "raw": {
+                                    "language": "json"
                                 }
+                            }
+                        }
+                    }
+                },
+                {
+                    "name": "Get Favorite Players",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/favorites/players",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "favorites",
+                                "players"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Remove Favorite Player",
+                    "request": {
+                        "method": "DELETE",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/favorites/players/{{userId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "favorites",
+                                "players",
+                                "{{userId}}"
                             ]
                         }
                     }
                 }
             ]
-        }
-    ],
-    "variable": [
+        },
         {
-            "key": "baseUrl",
-            "value": "http://localhost:3000",
-            "type": "string"
+            "name": "Stats — Badminton",
+            "item": [
+                {
+                    "name": "Overview",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/overview?timeRange=ALL_TIME",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "overview"
+                            ],
+                            "query": [
+                                {
+                                    "key": "timeRange",
+                                    "value": "ALL_TIME",
+                                    "description": "ALL_TIME | THIS_MONTH | THIS_WEEK"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Singles Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/singles?timeRange=ALL_TIME",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "singles"
+                            ],
+                            "query": [
+                                {
+                                    "key": "timeRange",
+                                    "value": "ALL_TIME",
+                                    "description": "ALL_TIME | THIS_MONTH | THIS_WEEK"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Doubles Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/doubles?timeRange=ALL_TIME",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "doubles"
+                            ],
+                            "query": [
+                                {
+                                    "key": "timeRange",
+                                    "value": "ALL_TIME",
+                                    "description": "ALL_TIME | THIS_MONTH | THIS_WEEK"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Match History",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/history?page=1&limit=10&timeRange=ALL_TIME",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "history"
+                            ],
+                            "query": [
+                                {
+                                    "key": "page",
+                                    "value": "1"
+                                },
+                                {
+                                    "key": "limit",
+                                    "value": "10"
+                                },
+                                {
+                                    "key": "timeRange",
+                                    "value": "ALL_TIME",
+                                    "description": "ALL_TIME | THIS_MONTH | THIS_WEEK"
+                                }
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Achievements (from Stats)",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/achievements",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "achievements"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Active Streaks",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/streaks",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "streaks"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Court Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/courts",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "courts"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "All Stats",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/stats/badminton/{{userId}}/all",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "stats",
+                                "badminton",
+                                "{{userId}}",
+                                "all"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Achievements — Badminton",
+            "item": [
+                {
+                    "name": "Get All Achievements",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/achievements/badminton/{{userId}}",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "achievements",
+                                "badminton",
+                                "{{userId}}"
+                            ]
+                        },
+                        "description": "Returns all 18 achievement definitions with unlock status and progress.\n\nResponse shape:\n{\n  summary: { totalUnlocked, totalAchievements, progressPercentage },\n  achievements: [{ id, name, description, type, tier, icon, isUnlocked, progress, target, percentage, unlockedAt }],\n  recentlyUnlocked: [...],\n  inProgress: [...]\n}"
+                    }
+                },
+                {
+                    "name": "Get Share Card",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/achievements/badminton/{{userId}}/{{achievementId}}/share-card",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "achievements",
+                                "badminton",
+                                "{{userId}}",
+                                "{{achievementId}}",
+                                "share-card"
+                            ]
+                        },
+                        "description": "Returns shareable card data for one achievement.\n\nResponse shape:\n{\n  achievementName, shareCardText, tier, icon, type, isUnlocked, unlockedAt, progress, target,\n  user: { id, name, username, profileImage }\n}"
+                    }
+                },
+                {
+                    "name": "Evaluate Achievements (On-demand)",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "x-session-id",
+                                "value": "{{sessionId}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{baseUrl}}/api/achievements/badminton/{{userId}}/evaluate",
+                            "host": [
+                                "{{baseUrl}}"
+                            ],
+                            "path": [
+                                "api",
+                                "achievements",
+                                "badminton",
+                                "{{userId}}",
+                                "evaluate"
+                            ]
+                        },
+                        "description": "Manually re-evaluate all 18 achievements using the user's latest match.\n\nAchievements are also auto-evaluated after every match ends.\n\nResponse: { newlyUnlocked: string[] }"
+                    }
+                }
+            ]
         }
     ]
 }

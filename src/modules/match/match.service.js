@@ -3,6 +3,7 @@ import { EngineFactory, MatchProgressionFactory } from "../../domains/EngineFact
 import { calculateMatchPoints, updatePlayerStatsAfterMatch } from "../stats/badmintonStats/stats.service.js";
 import { addPersonnel } from "../personnel/personnel.service.js";
 import { aggregateMatchStats } from "../stats/matchStatsAggregator.service.js";
+import { checkTournamentMatchAchievements } from "../achievement/achievement.service.js";
 
 export const startMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
@@ -975,6 +976,26 @@ export const declareTournamentWinner = async (tx, tournamentId, winnerParticipan
     });
 
     console.log(`✅ Tournament ${tournamentId} completed!`);
+
+    // 🏆 Evaluate tournament achievements for all final match participants
+    try {
+        const finalMatch = await tx.match.findFirst({
+            where: { tournamentId },
+            orderBy: { round: 'desc' },
+            include: { participants: { select: { userId: true } } }
+        });
+
+        if (finalMatch) {
+            for (const participant of finalMatch.participants) {
+                if (!participant.userId) continue;
+                const participantResult = participant.userId === winnerUserId ? 'WIN' : 'LOSS';
+                checkTournamentMatchAchievements(participant.userId, finalMatch.id, participantResult)
+                    .catch(err => console.error('Tournament achievement check failed (non-fatal):', err));
+            }
+        }
+    } catch (achErr) {
+        console.error('Tournament achievement hook failed (non-fatal):', achErr);
+    }
 };
 
 
@@ -4336,18 +4357,133 @@ export const listMatches = async ({
 export const endMatch = async (matchId) => {
     const match = await prisma.match.findUnique({
         where: { id: matchId },
-        include: { parts: true },
+        include: {
+            parts: true,
+            participants: {
+                include: {
+                    user: { select: { id: true, name: true } },
+                    team: true
+                }
+            }
+        },
     });
 
     if (!match) throw new Error("MATCH_NOT_FOUND");
     if (match.status !== "LIVE") throw new Error("MATCH_NOT_LIVE");
 
-    // winner should already be set by engine
-    return prisma.match.update({
+    // Determine winner from parts (who won majority of games)
+    const partsWon = {};
+    for (const part of match.parts) {
+        if (part.winnerParticipantId) {
+            partsWon[part.winnerParticipantId] = (partsWon[part.winnerParticipantId] || 0) + 1;
+        }
+    }
+
+    let winnerParticipantId = null;
+    const majority = Math.ceil(match.partsCount / 2);
+    for (const [participantId, wins] of Object.entries(partsWon)) {
+        if (wins >= majority) {
+            winnerParticipantId = participantId;
+            break;
+        }
+    }
+
+    // If no clear winner from parts, use score totals
+    if (!winnerParticipantId) {
+        const scoreTotals = {};
+        for (const part of match.parts) {
+            const p1Part = match.participants.find(p => p.side === 1 || p.position === 1);
+            const p2Part = match.participants.find(p => p.side === 2 || p.position === 2);
+            if (p1Part) scoreTotals[p1Part.id] = (scoreTotals[p1Part.id] || 0) + part.p1Score;
+            if (p2Part) scoreTotals[p2Part.id] = (scoreTotals[p2Part.id] || 0) + part.p2Score;
+        }
+        const sorted = Object.entries(scoreTotals).sort((a, b) => b[1] - a[1]);
+        if (sorted.length > 0) winnerParticipantId = sorted[0][0];
+    }
+
+    const winnerParticipant = match.participants.find(p => p.id === winnerParticipantId);
+    const isTeamSport = match.gameType === "DOUBLES";
+
+    const updateData = {
+        status: "COMPLETED",
+        endTime: new Date(),
+        completedAt: new Date(),
+    };
+
+    if (winnerParticipantId) {
+        updateData.winnerParticipantId = winnerParticipantId;
+        if (isTeamSport) {
+            updateData.winnerTeamId = winnerParticipant?.teamId;
+            updateData.winnerUserId = null;
+        } else {
+            updateData.winnerUserId = winnerParticipant?.user?.id;
+            updateData.winnerTeamId = null;
+        }
+    }
+
+    const updatedMatch = await prisma.match.update({
         where: { id: matchId },
-        data: {
-            status: "COMPLETED",
-            endTime: new Date(),
-        },
+        data: updateData,
     });
+
+    // Aggregate match stats from all events
+    try {
+        console.log(`📊 Aggregating match stats for ${matchId}`);
+        await aggregateMatchStats(matchId);
+        console.log(`✅ Match stats aggregated`);
+    } catch (statsError) {
+        console.error(`❌ Failed to aggregate match stats:`, statsError);
+    }
+
+    // Update player sport profiles
+    if (winnerParticipantId) {
+        try {
+            console.log(`📊 Updating player stats for match ${matchId}`);
+            if (match.gameType === "SINGLES") {
+                const loserParticipant = match.participants.find(p => p.id !== winnerParticipantId);
+
+                await updatePlayerStatsAfterMatch({
+                    userId: winnerParticipant?.user?.id,
+                    sportCode: match.sportCode,
+                    gameType: match.gameType,
+                    result: "WIN",
+                    matchId,
+                    points: await calculateMatchPoints(matchId, winnerParticipant?.user?.id)
+                });
+
+                if (loserParticipant) {
+                    await updatePlayerStatsAfterMatch({
+                        userId: loserParticipant?.user?.id,
+                        sportCode: match.sportCode,
+                        gameType: match.gameType,
+                        result: "LOSS",
+                        matchId,
+                        points: await calculateMatchPoints(matchId, loserParticipant?.user?.id)
+                    });
+                }
+            } else {
+                // DOUBLES - update all team members
+                const winnerTeamId = winnerParticipant?.teamId;
+                const loserTeamId = match.participants.find(p => p.id !== winnerParticipantId)?.teamId;
+
+                if (winnerTeamId) {
+                    const winners = await prisma.teamMember.findMany({ where: { teamId: winnerTeamId } });
+                    for (const m of winners) {
+                        await updatePlayerStatsAfterMatch({ userId: m.userId, sportCode: match.sportCode, gameType: match.gameType, result: "WIN", matchId, teamId: winnerTeamId, points: await calculateMatchPoints(matchId, m.userId) });
+                    }
+                }
+                if (loserTeamId) {
+                    const losers = await prisma.teamMember.findMany({ where: { teamId: loserTeamId } });
+                    for (const m of losers) {
+                        await updatePlayerStatsAfterMatch({ userId: m.userId, sportCode: match.sportCode, gameType: match.gameType, result: "LOSS", matchId, teamId: loserTeamId, points: await calculateMatchPoints(matchId, m.userId) });
+                    }
+                }
+            }
+            console.log(`✅ Player stats updated`);
+        } catch (statsError) {
+            console.error(`❌ Failed to update player stats:`, statsError);
+        }
+    }
+
+    return updatedMatch;
 };

@@ -88,7 +88,7 @@ export const getLiveMatchState = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const state = await matchService.getLiveState(id);
+        const state = await matchService.getMatchState(id);
 
         return res.json({
             success: true,

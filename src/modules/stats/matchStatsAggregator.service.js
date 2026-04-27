@@ -158,27 +158,57 @@ const badmintonStatsAggregator = {
             const payload = event.payload;
             const sportData = payload.badminton || payload; // Handle both namespaced and flat
 
-            // Map shot types (scalable - just add new mappings)
+            const rawType = sportData.shotType ? String(sportData.shotType).toUpperCase() : null;
+
+            // Normalise compound types from Flutter (e.g. "smash_winner" → "SMASH_WINNER")
+            // and extract the base shot and outcome
+            const isWinnerShot = rawType && (rawType.endsWith("_WINNER") || rawType === "WINNER" || sportData.isWinner);
+            const isUnforcedError = rawType === "UNFORCED_ERROR" || sportData.isUnforcedError;
+            const isForcedError = rawType === "FORCED_ERROR" || sportData.isForcedError;
+            const isServeAce = rawType === "SERVE_ACE" || sportData.isServeAce;
+            const isServeError = rawType === "SERVE_ERROR" || sportData.isServeError;
+            const isServe = rawType === "SERVE" || isServeAce || isServeError || sportData.isServe;
+
+            // Extract base shot type (strip trailing _WINNER / _ERROR etc.)
+            const baseShotType = rawType
+                ? rawType
+                    .replace(/_WINNER$/, "")
+                    .replace(/_ERROR$/, "")
+                    .replace(/_ACE$/, "")
+                : null;
+
+            // Map base shot types to stat counters (handles both plain and compound)
             const shotTypeMap = {
-                "SMASH": () => stats.smashes++,
-                "DROP": () => stats.drops++,
-                "CLEAR": () => stats.clears++,
-                "NET": () => stats.netShots++,
-                "DRIVE": () => stats.drives++,
-                "LIFT": () => stats.lifts++,
+                "SMASH":    () => stats.smashes++,
+                "DROP":     () => stats.drops++,
+                "CLEAR":    () => stats.clears++,
+                "NET":      () => stats.netShots++,
+                "NET_SHOT": () => stats.netShots++,
+                "DRIVE":    () => stats.drives++,
+                "LIFT":     () => stats.lifts++,
                 "FOREHAND": () => stats.forehandShots++,
                 "BACKHAND": () => stats.backhandShots++,
-                "OVERHEAD": () => stats.overheadShots++
+                "OVERHEAD": () => stats.overheadShots++,
             };
 
-            if (sportData.shotType && shotTypeMap[sportData.shotType]) {
-                shotTypeMap[sportData.shotType]();
+            if (baseShotType && shotTypeMap[baseShotType]) {
+                shotTypeMap[baseShotType]();
             }
 
+            // Winners & Errors
+            if (isWinnerShot) stats.winners++;
+            if (isUnforcedError) stats.unforcedErrors++;
+            if (isForcedError) stats.forcedErrors++;
+
+            // Serve stats
+            if (isServe) stats.serves++;
+            if (isServeAce) stats.serveAces++;
+            if (isServeError) stats.serveErrors++;
+
             // Rally stats
-            if (sportData.rallyLength) {
+            if (sportData.rallyLength && sportData.rallyLength > 0) {
                 stats.totalRallies++;
-                if (sportData.isWinner) stats.ralliesWon++;
+                if (isWinnerShot) stats.ralliesWon++;
                 if (sportData.rallyLength > stats.longestRally) {
                     stats.longestRally = sportData.rallyLength;
                 }
@@ -187,20 +217,11 @@ const badmintonStatsAggregator = {
                 }
             }
 
-            // Winners & Errors
-            if (sportData.isWinner) stats.winners++;
-            if (sportData.isUnforcedError) stats.unforcedErrors++;
-            if (sportData.isForcedError) stats.forcedErrors++;
-
-            // Serve stats
-            if (sportData.isServe) stats.serves++;
-            if (sportData.isServeAce) stats.serveAces++;
-            if (sportData.isServeError) stats.serveErrors++;
-
             // Position tracking
-            if (sportData.fromArea === "BACKCOURT") stats.shotsFromBackcourt++;
-            if (sportData.fromArea === "FRONTCOURT") stats.shotsFromFrontcourt++;
-            if (sportData.fromArea === "MIDCOURT") stats.shotsFromMidcourt++;
+            const fromArea = sportData.fromArea ? String(sportData.fromArea).toUpperCase() : null;
+            if (fromArea === "BACKCOURT") stats.shotsFromBackcourt++;
+            if (fromArea === "FRONTCOURT") stats.shotsFromFrontcourt++;
+            if (fromArea === "MIDCOURT") stats.shotsFromMidcourt++;
         }
 
         // Calculate derived stats
@@ -399,16 +420,38 @@ const storeAggregatedStats = async (match, aggregatedStats) => {
 
         // Store sport-specific stats
         switch (match.sportCode) {
-            case "BADMINTON":
+            case "BADMINTON": {
+                const badmintonData = {
+                    totalRallies: stats.totalRallies || 0,
+                    ralliesWon: stats.ralliesWon || 0,
+                    longestRally: stats.longestRally || 0,
+                    averageRally: stats.averageRally || null,
+                    smashes: stats.smashes || 0,
+                    drops: stats.drops || 0,
+                    clears: stats.clears || 0,
+                    netShots: stats.netShots || 0,
+                    drives: stats.drives || 0,
+                    lifts: stats.lifts || 0,
+                    serves: stats.serves || 0,
+                    serveAces: stats.serveAces || 0,
+                    serveErrors: stats.serveErrors || 0,
+                    winners: stats.winners || 0,
+                    unforcedErrors: stats.unforcedErrors || 0,
+                    forcedErrors: stats.forcedErrors || 0,
+                    forehandShots: stats.forehandShots || 0,
+                    backhandShots: stats.backhandShots || 0,
+                    overheadShots: stats.overheadShots || 0,
+                    distanceCovered: stats.distanceCovered || null,
+                    biggestComeback: stats.biggestComeback || null,
+                    longestStreak: stats.longestStreak || null,
+                };
                 await prisma.badmintonMatchStats.upsert({
                     where: { matchStatsId: matchStats.id },
-                    update: stats,
-                    create: {
-                        matchStatsId: matchStats.id,
-                        ...stats
-                    }
+                    update: badmintonData,
+                    create: { matchStatsId: matchStats.id, ...badmintonData }
                 });
                 break;
+            }
 
             case "CRICKET":
                 await prisma.cricketMatchStats.upsert({

@@ -63,7 +63,17 @@ export const listTournamentRequests = async (tournamentId, organizerId) => {
     });
 
     if (!tournament) throw new Error("TOURNAMENT_NOT_FOUND");
-    if (tournament.organizerId !== organizerId) throw new Error("NOT_AUTHORIZED_TO_VIEW_REQUESTS");
+
+    // Check via Personnel table (organizerId removed from tournament model)
+    const isOrganizer = await prisma.personnel.findFirst({
+        where: {
+            entityType: "TOURNAMENT",
+            entityId: tournamentId,
+            userId: organizerId,
+            role: { in: ["ORGANIZER", "ADMIN"] }
+        }
+    });
+    if (!isOrganizer) throw new Error("NOT_AUTHORIZED_TO_VIEW_REQUESTS");
 
     return prisma.tournamentRequest.findMany({
         where: { tournamentId },
@@ -105,8 +115,16 @@ export const updateRequestStatus = async (requestId, status, organizerId) => {
         if (!request) throw new Error("REQUEST_NOT_FOUND");
         if (request.status !== "PENDING") throw new Error("REQUEST_ALREADY_PROCESSED");
 
-        // Verify organizer
-        if (request.tournament.organizerId !== organizerId) {
+        // Verify organizer via Personnel table (organizerId field removed from tournament)
+        const isOrganizer = await tx.personnel.findFirst({
+            where: {
+                entityType: "TOURNAMENT",
+                entityId: request.tournamentId,
+                userId: organizerId,
+                role: { in: ["ORGANIZER", "ADMIN"] }
+            }
+        });
+        if (!isOrganizer) {
             throw new Error("NOT_AUTHORIZED_TO_UPDATE_REQUEST");
         }
 

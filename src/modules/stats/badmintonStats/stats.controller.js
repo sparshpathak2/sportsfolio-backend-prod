@@ -3,7 +3,7 @@ import * as statsService from "./stats.service.js";
 export const getBadmintonOverview = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { timeRange } = req.query; // 'ALL_TIME', 'THIS_MONTH', 'THIS_WEEK'
+        const { timeRange = 'ALL_TIME' } = req.query; // 'ALL_TIME', 'THIS_MONTH', 'THIS_WEEK'
 
         const stats = await statsService.getBadmintonOverview(userId, timeRange);
 
@@ -23,8 +23,9 @@ export const getBadmintonOverview = async (req, res) => {
 export const getBadmintonSingles = async (req, res) => {
     try {
         const { userId } = req.params;
+        const { timeRange = 'ALL_TIME' } = req.query;
 
-        const stats = await statsService.getBadmintonSinglesStats(userId);
+        const stats = await statsService.getBadmintonSinglesStats(userId, timeRange);
 
         res.json({
             success: true,
@@ -42,8 +43,9 @@ export const getBadmintonSingles = async (req, res) => {
 export const getBadmintonDoubles = async (req, res) => {
     try {
         const { userId } = req.params;
+        const { timeRange = 'ALL_TIME' } = req.query;
 
-        const stats = await statsService.getBadmintonDoublesStats(userId);
+        const stats = await statsService.getBadmintonDoublesStats(userId, timeRange);
 
         res.json({
             success: true,
@@ -61,9 +63,9 @@ export const getBadmintonDoubles = async (req, res) => {
 export const getMatchHistory = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { page = 1, limit = 10 } = req.query;
+        const { page = 1, limit = 10, timeRange = 'ALL_TIME' } = req.query;
 
-        const history = await statsService.getMatchHistory(userId, parseInt(page), parseInt(limit));
+        const history = await statsService.getMatchHistory(userId, parseInt(page), parseInt(limit), timeRange);
 
         res.json({
             success: true,
@@ -234,7 +236,7 @@ export const getCourtStats = async (req, res) => {
 export const getAllBadmintonStats = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { timeRange, page = 1, limit = 10 } = req.query;
+        const { timeRange = 'ALL_TIME', page = 1, limit = 10 } = req.query;
 
         // Run all stats queries in parallel
         const [
@@ -251,12 +253,12 @@ export const getAllBadmintonStats = async (req, res) => {
             statsService.getHighLevelSportStats(userId, "BADMINTON"),
             statsService.getSportTournamentAchievements(userId, "BADMINTON"),
             statsService.getBadmintonOverview(userId, timeRange),
-            statsService.getBadmintonSinglesStats(userId),
-            statsService.getBadmintonDoublesStats(userId),
+            statsService.getBadmintonSinglesStats(userId, timeRange),
+            statsService.getBadmintonDoublesStats(userId, timeRange),
             statsService.getAchievements(userId),
             statsService.getActiveStreaks(userId),
             statsService.getCourtStats(userId),
-            statsService.getMatchHistory(userId, parseInt(page), parseInt(limit))
+            statsService.getMatchHistory(userId, parseInt(page), parseInt(limit), timeRange)
         ]);
 
         res.json({

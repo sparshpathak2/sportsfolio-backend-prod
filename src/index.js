@@ -18,6 +18,7 @@ import invitationRoutes from "./modules/invitation/invitation.routes.js";
 import statsRoutes from "./modules/stats/badmintonStats/stats.routes.js";
 import personnelRoutes from "./modules/personnel/personnel.routes.js";
 import favoriteRoutes from "./modules/favorite/favorite.routes.js"
+import achievementRoutes from "./modules/achievement/achievement.routes.js";
 import testRoutes from "./modules/test/test.routes.js";
 import { initializeMatchmakingScheduler } from "./modules/scheduler/scheduler.service.js";
 import { createServer } from "http";
@@ -134,6 +135,7 @@ app.use("/api/sports", sportRoutes);
 app.use("/api/requests", requestRoutes);
 app.use("/api/invitations", invitationRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/achievements", achievementRoutes);
 app.use("/api/personnel", personnelRoutes);
 app.use("/api/test", testRoutes);
 

@@ -473,22 +473,27 @@ export const createTournament = async (data) => {
                 city: data.city ?? null,
 
                 locations: {
-                    connectOrCreate: data.locations.map((loc) => ({
-                        where: {
-                            name_address: {
-                                name: loc.name,
-                                address: loc.address,
-                            },
-                        },
-                        create: {
-                            name: loc.name,
-                            address: loc.address,
-                            city: loc.city ?? null,
-                            state: loc.state ?? null,
-                            country: loc.country ?? "India",
-                            zipCode: loc.zipCode ?? null,
-                        },
-                    })),
+                    ...(data.locations.every(loc => loc.id)
+                        ? { connect: data.locations.map(loc => ({ id: loc.id })) }
+                        : {
+                            connectOrCreate: data.locations.map((loc) => ({
+                                where: {
+                                    name_address: {
+                                        name: loc.name,
+                                        address: loc.address,
+                                    },
+                                },
+                                create: {
+                                    name: loc.name,
+                                    address: loc.address,
+                                    city: loc.city ?? null,
+                                    state: loc.state ?? null,
+                                    country: loc.country ?? "India",
+                                    zipCode: loc.zipCode ?? null,
+                                },
+                            }))
+                        }
+                    ),
                 },
             },
         });
@@ -1575,9 +1580,20 @@ export const getPublicTournaments = async (requesterId = null) => {
 };
 
 export const getMyTournaments = async (userId) => {
+    // Find tournaments where user is organizer via Personnel table
+    const personnelRecords = await prisma.personnel.findMany({
+        where: {
+            userId,
+            entityType: "TOURNAMENT",
+            role: { in: ["ORGANIZER", "ADMIN"] }
+        },
+        select: { entityId: true }
+    });
+    const organizedIds = personnelRecords.map(p => p.entityId);
+
     const tournaments = await prisma.tournament.findMany({
         where: {
-            organizerId: userId,
+            id: { in: organizedIds }
         },
         include: {
             locations: true,
