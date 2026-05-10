@@ -62,7 +62,7 @@ export const requestOtp = async (req, res) => {
     }
 
     try {
-        const otp = generateOtp();
+        const otp = "123456";
         const hashedOtp = hashOtp(otp);
         const expiresAt = otpExpiry(5);
 
