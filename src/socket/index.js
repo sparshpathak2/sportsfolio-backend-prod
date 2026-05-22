@@ -236,17 +236,26 @@ export const initializeSocket = (io) => {
                     return;
                 }
 
-                // ✅ RESTRICTED: Only participants can score
-                const participant = await prisma.matchParticipant.findFirst({
-                    where: {
-                        matchId: matchId,
-                        userId: socket.userId
-                    }
+                // ✅ RESTRICTED: Only match/tournament owners or officials can record scores
+                const match = await prisma.match.findUnique({
+                    where: { id: matchId },
+                    select: { tournamentId: true }
                 });
+ 
+                const [matchPersonnel, tournamentPersonnel] = await Promise.all([
+                    prisma.personnel.findFirst({
+                        where: { entityType: "MATCH", entityId: matchId, userId: socket.userId }
+                    }),
+                    match?.tournamentId
+                        ? prisma.personnel.findFirst({
+                            where: { entityType: "TOURNAMENT", entityId: match.tournamentId, userId: socket.userId }
+                        })
+                        : Promise.resolve(null)
+                ]);
 
-                if (!participant) {
-                    console.log(`❌ Non-participant ${socket.userId} tried to score in match ${matchId}`);
-                    socket.emit("error", { message: "Only match participants can record scores" });
+                if (!matchPersonnel && !tournamentPersonnel) {
+                    console.log(`❌ Unauthorized user ${socket.userId} tried to score in match ${matchId}`);
+                    socket.emit("error", { message: "Only match/tournament owners or officials can record scores" });
                     return;
                 }
 

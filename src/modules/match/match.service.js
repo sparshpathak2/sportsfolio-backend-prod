@@ -5,7 +5,7 @@ import { addPersonnel } from "../personnel/personnel.service.js";
 import { aggregateMatchStats } from "../stats/matchStatsAggregator.service.js";
 import { checkTournamentMatchAchievements } from "../achievement/achievement.service.js";
 
-export const startMatch = async (matchId) => {
+export const startMatch = async ({ matchId, userId }) => {
     const match = await prisma.match.findUnique({
         where: { id: matchId },
         include: {
@@ -17,7 +17,24 @@ export const startMatch = async (matchId) => {
 
     if (!match) throw new Error("MATCH_NOT_FOUND");
 
-    // 🔥 FIX: Instead of throwing errors, return success with appropriate message
+    // Verify caller is authorized:
+    // - Direct match official (manual or tournament match), OR
+    // - Tournament official (tournament matches only — can start any match in their tournament)
+    const [matchOfficial, tournamentOfficial] = await Promise.all([
+        prisma.personnel.findFirst({
+            where: { entityType: "MATCH", entityId: matchId, userId },
+        }),
+        match.tournamentId
+            ? prisma.personnel.findFirst({
+                where: { entityType: "TOURNAMENT", entityId: match.tournamentId, userId },
+            })
+            : Promise.resolve(null),
+    ]);
+
+    if (!matchOfficial && !tournamentOfficial) {
+        throw new Error("UNAUTHORIZED_NOT_MATCH_OFFICIAL");
+    }
+
     if (match.status === "LIVE") {
         console.log(`⚠️ Match ${matchId} is already LIVE`);
         return {
@@ -4229,6 +4246,44 @@ export const listMatches = async ({
                 data: [],
             };
         }
+    }
+
+    // ----------------- OFFICIAL MATCHES (matches across tournaments where user is official) -----------------
+    if (scope === "official" && requesterId) {
+        // Direct match personnel IDs
+        const matchPersonnelIds = await prisma.personnel.findMany({
+            where: { entityType: "MATCH", userId: requesterId },
+            select: { entityId: true },
+        }).then(results => results.map(r => r.entityId));
+
+        // Tournament personnel → expand to all match IDs in those tournaments
+        const tournamentPersonnelIds = await prisma.personnel.findMany({
+            where: { entityType: "TOURNAMENT", userId: requesterId },
+            select: { entityId: true },
+        }).then(results => results.map(r => r.entityId));
+
+        let tournamentMatchIds = [];
+        if (tournamentPersonnelIds.length > 0) {
+            tournamentMatchIds = await prisma.match.findMany({
+                where: { tournamentId: { in: tournamentPersonnelIds } },
+                select: { id: true },
+            }).then(results => results.map(r => r.id));
+        }
+
+        const allOfficialMatchIds = [...new Set([...matchPersonnelIds, ...tournamentMatchIds])];
+
+        console.log(`🎯 Official scope: user ${requesterId} has ${allOfficialMatchIds.length} official matches`, {
+            directMatch: matchPersonnelIds.length,
+            viaTournament: tournamentMatchIds.length,
+        });
+
+        if (allOfficialMatchIds.length === 0) {
+            return {
+                meta: { page, limit, total: 0, totalPages: 0 },
+                data: [],
+            };
+        }
+        where.id = { in: allOfficialMatchIds };
     }
 
     // ----------------- PAGINATION -----------------

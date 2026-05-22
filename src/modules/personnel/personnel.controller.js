@@ -1,3 +1,4 @@
+import prisma from "../../lib/prisma.js";
 import * as personnelService from "./personnel.service.js";
 
 /**
@@ -29,16 +30,28 @@ export const getAvailablePersonnel = async (req, res) => {
 
 /**
  * Add personnel to tournament
+ * Only the primary tournament official (organizer) can add officials
  */
 export const addTournamentPersonnel = async (req, res) => {
     try {
         const { tournamentId } = req.params;
         const { personnel } = req.body;
+        const callerId = req.user.id;
 
         if (!personnel || !Array.isArray(personnel) || personnel.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: "personnel array is required"
+            });
+        }
+
+        const isPrimaryOfficial = await prisma.personnel.findFirst({
+            where: { entityType: "TOURNAMENT", entityId: tournamentId, userId: callerId, isPrimary: true }
+        });
+        if (!isPrimaryOfficial) {
+            return res.status(403).json({
+                success: false,
+                message: "UNAUTHORIZED_NOT_TOURNAMENT_OWNER"
             });
         }
 
@@ -64,16 +77,46 @@ export const addTournamentPersonnel = async (req, res) => {
 
 /**
  * Add personnel to match
+ * Only accessible by the primary match official OR any tournament personnel
  */
 export const addMatchPersonnel = async (req, res) => {
     try {
         const { matchId } = req.params;
         const { personnel } = req.body;
+        const callerId = req.user.id;
 
         if (!personnel || !Array.isArray(personnel) || personnel.length === 0) {
             return res.status(400).json({
                 success: false,
                 message: "personnel array is required"
+            });
+        }
+
+        // Fetch match to get tournamentId
+        const match = await prisma.match.findUnique({
+            where: { id: matchId },
+            select: { tournamentId: true }
+        });
+        if (!match) {
+            return res.status(404).json({ success: false, message: "MATCH_NOT_FOUND" });
+        }
+
+        // Check: primary match official OR tournament personnel
+        const [primaryMatchOfficial, tournamentPersonnel] = await Promise.all([
+            prisma.personnel.findFirst({
+                where: { entityType: "MATCH", entityId: matchId, userId: callerId, isPrimary: true }
+            }),
+            match.tournamentId
+                ? prisma.personnel.findFirst({
+                      where: { entityType: "TOURNAMENT", entityId: match.tournamentId, userId: callerId }
+                  })
+                : Promise.resolve(null),
+        ]);
+
+        if (!primaryMatchOfficial && !tournamentPersonnel) {
+            return res.status(403).json({
+                success: false,
+                message: "UNAUTHORIZED_NOT_MATCH_OWNER"
             });
         }
 
@@ -153,11 +196,23 @@ export const getMatchPersonnel = async (req, res) => {
 
 /**
  * Update tournament personnel
+ * Only the primary tournament official (organizer) can update officials
  */
 export const updateTournamentPersonnel = async (req, res) => {
     try {
         const { tournamentId, userId } = req.params;
         const { role, isPrimary } = req.body;
+        const callerId = req.user.id;
+
+        const isPrimaryOfficial = await prisma.personnel.findFirst({
+            where: { entityType: "TOURNAMENT", entityId: tournamentId, userId: callerId, isPrimary: true }
+        });
+        if (!isPrimaryOfficial) {
+            return res.status(403).json({
+                success: false,
+                message: "UNAUTHORIZED_NOT_TOURNAMENT_OWNER"
+            });
+        }
 
         const result = await personnelService.updatePersonnelRole({
             entityType: "TOURNAMENT",
@@ -213,10 +268,22 @@ export const updateMatchPersonnel = async (req, res) => {
 
 /**
  * Remove tournament personnel
+ * Only the primary tournament official (organizer) can remove officials
  */
 export const removeTournamentPersonnel = async (req, res) => {
     try {
         const { tournamentId, userId } = req.params;
+        const callerId = req.user.id;
+
+        const isPrimaryOfficial = await prisma.personnel.findFirst({
+            where: { entityType: "TOURNAMENT", entityId: tournamentId, userId: callerId, isPrimary: true }
+        });
+        if (!isPrimaryOfficial) {
+            return res.status(403).json({
+                success: false,
+                message: "UNAUTHORIZED_NOT_TOURNAMENT_OWNER"
+            });
+        }
 
         const result = await personnelService.removePersonnel({
             entityType: "TOURNAMENT",
@@ -280,6 +347,29 @@ export const getUserPersonnelAssignments = async (req, res) => {
         });
     } catch (error) {
         console.error("Get User Personnel Assignments Error:", error);
+        res.status(400).json({
+            success: false,
+            message: error.message
+        });
+    }
+};
+
+/**
+ * Get all matches where a user is listed as personnel
+ * GET /api/users/:userId/personnel/matches
+ */
+export const getUserMatchesAsPersonnel = async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        const matches = await personnelService.getUserMatchesAsPersonnel(userId);
+
+        res.json({
+            success: true,
+            data: matches
+        });
+    } catch (error) {
+        console.error("Get User Matches As Personnel Error:", error);
         res.status(400).json({
             success: false,
             message: error.message

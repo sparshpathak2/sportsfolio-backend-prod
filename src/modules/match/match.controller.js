@@ -18,7 +18,7 @@ export const startMatch = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const result = await matchService.startMatch(id);
+        const result = await matchService.startMatch({ matchId: id, userId: req.user.id });
 
         // 🔥 FIX: Return the service response directly without double-wrapping
         return res.json({

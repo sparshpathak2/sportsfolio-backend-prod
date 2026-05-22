@@ -1,3 +1,4 @@
+import prisma from "../../lib/prisma.js";
 import * as tournamentService from "./tournament.service.js";
 
 const parseIfString = (value) => {
@@ -411,6 +412,18 @@ export const upsertTournamentRules = async (req, res) => {
 export const runMatchmaking = async (req, res) => {
     try {
         const { tournamentId } = req.params;
+        const callerId = req.user.id;
+
+        // Only tournament personnel can run matchmaking
+        const isTournamentPersonnel = await prisma.personnel.findFirst({
+            where: { entityType: "TOURNAMENT", entityId: tournamentId, userId: callerId },
+        });
+        if (!isTournamentPersonnel) {
+            return res.status(403).json({
+                success: false,
+                message: "UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL",
+            });
+        }
 
         const result = await tournamentService.runMatchmaking(tournamentId);
 
@@ -426,6 +439,18 @@ export const runMatchmaking = async (req, res) => {
 export const advanceTournamentRound = async (req, res) => {
     try {
         const { tournamentId } = req.params;
+        const callerId = req.user.id;
+
+        // Only tournament personnel can advance rounds
+        const isTournamentPersonnel = await prisma.personnel.findFirst({
+            where: { entityType: "TOURNAMENT", entityId: tournamentId, userId: callerId },
+        });
+        if (!isTournamentPersonnel) {
+            return res.status(403).json({
+                success: false,
+                message: "UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL",
+            });
+        }
 
         const result = await tournamentService.advanceRound(tournamentId);
 

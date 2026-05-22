@@ -41,4 +41,7 @@ router.delete("/matches/:matchId/personnel/:userId", personnelController.removeM
 // GET /api/users/:userId/personnel
 router.get("/users/:userId/personnel", personnelController.getUserPersonnelAssignments);
 
+// GET /api/users/:userId/personnel/matches
+router.get("/users/:userId/personnel/matches", personnelController.getUserMatchesAsPersonnel);
+
 export default router;

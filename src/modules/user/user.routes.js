@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as userController from "./user.controller.js";
 import invitationRoutes from "../invitation/invitation.routes.js"
+import * as personnelController from "../personnel/personnel.controller.js";
 
 const router = Router();
 
@@ -13,5 +14,8 @@ router.post("/:id/restore", userController.restoreUser);
 
 // ✅ User → Invitations
 router.use("/:userId/invitations", invitationRoutes);
+
+// GET /api/users/:userId/personnel/matches
+router.get("/:userId/personnel/matches", personnelController.getUserMatchesAsPersonnel);
 
 export default router;

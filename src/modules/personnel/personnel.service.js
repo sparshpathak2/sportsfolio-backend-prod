@@ -565,6 +565,50 @@ export const removePersonnel = async ({ entityType, entityId, userId }) => {
 };
 
 /**
+ * Get all matches where a user is listed as personnel
+ */
+export const getUserMatchesAsPersonnel = async (userId) => {
+    const matchPersonnel = await prisma.personnel.findMany({
+        where: { userId, entityType: "MATCH" },
+        orderBy: { joinedAt: 'desc' }
+    });
+
+    const matchIds = matchPersonnel.map(p => p.entityId);
+
+    if (matchIds.length === 0) return [];
+
+    const matches = await prisma.match.findMany({
+        where: { id: { in: matchIds } },
+        include: {
+            location: true,
+            tournament: {
+                select: { id: true, name: true, sportCode: true }
+            },
+            participants: {
+                include: {
+                    user: {
+                        select: { id: true, name: true, username: true, profileImage: true }
+                    }
+                }
+            },
+            parts: {
+                orderBy: { partNumber: 'asc' }
+            }
+        },
+        orderBy: { createdAt: 'desc' }
+    });
+
+    // Attach the user's personnel role to each match
+    const personnelByMatchId = Object.fromEntries(matchPersonnel.map(p => [p.entityId, p]));
+
+    return matches.map(match => ({
+        ...match,
+        personnelRole: personnelByMatchId[match.id]?.role ?? null,
+        isPrimary: personnelByMatchId[match.id]?.isPrimary ?? false
+    }));
+};
+
+/**
  * Get all entities where a user is personnel
  */
 export const getUserPersonnelAssignments = async (userId) => {
