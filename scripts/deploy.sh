@@ -6,7 +6,7 @@ NEW_TAG="${1:?Usage: deploy.sh <tag>}"
 DOCKERHUB_USER="spa511"
 EC2_KEY="~/.ssh/sparsh-admin-sportsfolio-ssh.pem"
 EC2_HOST="ubuntu@15.206.209.67"
-REMOTE_DIR="~/sportsfolio-docker-deploy"
+REMOTE_DIR="~/sportsfolio-backend-prod"
 
 echo "== npm audit gate =="
 npm audit --audit-level=critical
