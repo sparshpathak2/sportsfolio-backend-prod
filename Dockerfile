@@ -6,8 +6,11 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # python3/make/g++ needed to compile bcrypt's native bindings.
+# openssl needed so Prisma can correctly detect the OpenSSL version at
+# generate-time and at runtime — node:20-slim doesn't ship it by default,
+# which causes the "could not locate the Query Engine" mismatch error.
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends python3 make g++ && \
+    apt-get install -y --no-install-recommends python3 make g++ openssl && \
     rm -rf /var/lib/apt/lists/*
 
 # Layer-cache friendly: deps change less often than source
@@ -32,6 +35,12 @@ RUN npm prune --omit=dev
 
 # ---- Stage 2: runtime ----
 FROM node:20-slim
+
+# Same reason as the builder stage: the Prisma query engine needs OpenSSL
+# present at runtime too, not just at generate-time.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends openssl ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
 # Non-root user (SOP Part 2) — Debian syntax
 RUN groupadd -r appgroup && useradd -r -g appgroup -m appuser

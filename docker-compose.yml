@@ -15,6 +15,11 @@ services:
     networks:
       - sportsfolio-network
     # no `ports:` — reachable only from other containers on sportsfolio-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
     deploy:
       resources:
         limits:
@@ -41,7 +46,8 @@ services:
       DATABASE_URL: postgresql://app_user:${APP_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
       PORT: 3001
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - sportsfolio-network
     # no `ports:` — reachable only via nginx
@@ -67,7 +73,8 @@ services:
       DATABASE_URL: postgresql://migrate_user:${MIGRATE_DB_PASSWORD}@postgres:5432/${POSTGRES_DB}
     command: ["npx", "prisma", "migrate", "deploy"]
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - sportsfolio-network
     profiles:
