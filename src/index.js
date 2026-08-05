@@ -168,20 +168,6 @@ app.use((err, req, res, next) => {
 //     console.log(`🚀 Backend running on http://127.0.0.1:${PORT}`);
 // });
 
-/* ======================================================
-   🚀 START SERVER WITH SCHEDULER
-   ====================================================== */
-server.listen(PORT, "0.0.0.0", () => {
-    console.log(`🚀 Backend running on http://0.0.0.0:${PORT}`);
-
-    // ✅ INITIALIZE MATCHMAKING SCHEDULER
-    try {
-        initializeMatchmakingScheduler();
-        console.log(`⏰ Matchmaking scheduler initialized and running`);
-    } catch (error) {
-        console.error(`❌ Failed to initialize matchmaking scheduler:`, error.message);
-    }
-});
 
 /* ======================================================
    🚀 START SERVER WITH SOCKET.IO
