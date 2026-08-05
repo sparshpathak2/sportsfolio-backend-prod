@@ -3,9 +3,9 @@
 set -euo pipefail
 
 NEW_TAG="${1:?Usage: deploy.sh <tag>}"
-DOCKERHUB_USER="your-dockerhub-username"   # match .env on the server
-EC2_KEY="~/.ssh/sportsfolio-prod-key.pem"
-EC2_HOST="ubuntu@<your-ec2-ip>"
+DOCKERHUB_USER="spa511"
+EC2_KEY="~/.ssh/sparsh-admin-sportsfolio-ssh.pem"
+EC2_HOST="ubuntu@15.206.209.67"
 REMOTE_DIR="~/sportsfolio-docker-deploy"
 
 echo "== npm audit gate =="
