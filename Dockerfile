@@ -1,13 +1,14 @@
 # ---- Stage 1: builder ----
-# Installs ALL deps (incl. dev, since prisma CLI is needed to generate the
-# client), generates the Prisma client, then prunes dev deps back out.
-FROM node:20-alpine AS builder
+# Debian-based (not Alpine) to match prisma/schema.prisma's binaryTargets,
+# which already specifies "debian-openssl-3.0.x" rather than a musl target.
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# python3/make/g++ are needed to compile bcrypt's native bindings below.
-# Alpine has no prebuilt bcrypt binary, unlike Debian-based images.
-RUN apk add --no-cache python3 make g++
+# python3/make/g++ needed to compile bcrypt's native bindings.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends python3 make g++ && \
+    rm -rf /var/lib/apt/lists/*
 
 # Layer-cache friendly: deps change less often than source
 COPY package*.json ./
@@ -30,10 +31,10 @@ RUN npx prisma generate
 RUN npm prune --omit=dev
 
 # ---- Stage 2: runtime ----
-FROM node:20-alpine
+FROM node:20-slim
 
-# Non-root user (SOP Part 2)
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Non-root user (SOP Part 2) — Debian syntax
+RUN groupadd -r appgroup && useradd -r -g appgroup -m appuser
 
 WORKDIR /app
 
