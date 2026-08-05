@@ -59,7 +59,20 @@ echo "== DOCKER-USER chain: container egress lockdown (THIS is what UFW misses) 
 # arbitrary outbound port, no plaintext SMTP (25), no random high ports a
 # miner or reverse shell would use.
 sudo iptables -I DOCKER-USER -j DROP
-sudo iptables -I DOCKER-USER -o sportsfolio-docker-deploy_sportsfolio-network -j ACCEPT
+# Allow return traffic for connections we've already accepted. Without this,
+# an inbound request (e.g. a client hitting nginx) gets ACCEPTed on the way
+# in but the response going back out doesn't match any interface-specific
+# rule below and gets silently DROPped — the connection hangs with no error,
+# looking identical to a closed port from the outside. This bit us on the
+# very first live deploy.
+sudo iptables -I DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+# Allow traffic to/from any Compose-managed bridge network. Using a wildcard
+# (trailing +) instead of a specific bridge name/ID is deliberate: Docker
+# assigns bridge interface names like br-<12 hex chars> dynamically, and
+# that ID can change if the network is ever removed and recreated (e.g. a
+# `docker compose down` without `up` in between). A hardcoded name silently
+# breaks the rule the next time that happens; `br-+` matches any of them.
+sudo iptables -I DOCKER-USER -o br-+ -j ACCEPT
 # DNS resolution for containers
 sudo iptables -I DOCKER-USER -p udp --dport 53 -j ACCEPT
 sudo iptables -I DOCKER-USER -p tcp --dport 53 -j ACCEPT
@@ -71,9 +84,29 @@ sudo iptables -I DOCKER-USER -p tcp --dport 465 -j ACCEPT
 # If you later narrow this to specific IPs (e.g. your SMTP provider's fixed
 # relay IPs), replace the blanket port rules above with -d <ip> --dport <port> rules.
 
-# Persist iptables rules across reboots
-sudo apt-get install -y iptables-persistent
-sudo netfilter-persistent save
+# Persist these rules across reboots — WITHOUT iptables-persistent.
+# iptables-persistent conflicts with ufw as a package (installing one on
+# Ubuntu removes the other, since both try to own the system's iptables
+# rule-loading at boot) — this bit us on the very first live deploy, when
+# installing iptables-persistent silently uninstalled ufw with no warning.
+# ufw itself already reloads /etc/ufw/after.rules on every boot, so we hook
+# our DOCKER-USER rules into that file instead of using a separate package.
+if ! grep -q "DOCKER-USER" /etc/ufw/after.rules 2>/dev/null; then
+  sudo tee -a /etc/ufw/after.rules > /dev/null <<'EOF'
+*filter
+:DOCKER-USER - [0:0]
+-A DOCKER-USER -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+-A DOCKER-USER -o br-+ -j ACCEPT
+-A DOCKER-USER -p udp --dport 53 -j ACCEPT
+-A DOCKER-USER -p tcp --dport 53 -j ACCEPT
+-A DOCKER-USER -p tcp --dport 443 -j ACCEPT
+-A DOCKER-USER -p tcp --dport 587 -j ACCEPT
+-A DOCKER-USER -p tcp --dport 465 -j ACCEPT
+-A DOCKER-USER -j DROP
+COMMIT
+EOF
+  sudo ufw reload
+fi
 
 echo "== EC2 metadata / IAM reminders (set these in the AWS console, not here) =="
 echo " - Instance metadata: set to V2 only (token required), hop limit 1"
