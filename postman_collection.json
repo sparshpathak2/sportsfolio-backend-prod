@@ -2,7 +2,7 @@
     "info": {
         "_postman_id": "sportsfolio-backend-v3-2026",
         "name": "Sportsfolio Backend API v3",
-        "description": "Complete API collection — 70+ endpoints.\n\nVariables:\n  baseUrl = http://localhost:3001\n  sessionId = token from verify-otp\n  userId, teamId, tournamentId, matchId, invitationId, locationId, achievementId, requestId",
+        "description": "Complete API collection — 70+ endpoints.\n\nVariables:\n  baseUrl = http://localhost:3001\n  sessionId = token from verify-otp\n  userId, teamId, tournamentId, matchId, invitationId, locationId, achievementId, requestId\n\n🔐 AUTH RULES (Personnel system):\n\nManual Match flow:\n  1. Create match (POST /api/matches)\n  2. Add match officials (POST /api/personnel/matches/:id/personnel) — caller must be primary match official\n  3. Start match (POST /api/matches/:id/start) — caller must be a match official\n\nTournament flow:\n  1. Create tournament (POST /api/tournaments) — creator auto-added as primary tournament official\n  2. Add tournament officials (POST /api/personnel/tournaments/:id/personnel) — primary official only → 403 UNAUTHORIZED_NOT_TOURNAMENT_OWNER\n  3. Run matchmaking (POST /api/tournaments/:id/matchmaking) — any tournament official → 403 UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL\n  4. Start any tournament match (POST /api/matches/:id/start) — match official OR tournament official\n  5. Advance round (POST /api/tournaments/:id/rounds/next) — any tournament official\n\nScope values for GET /api/matches:\n  scope=my       → matches I participate in\n  scope=official → matches I officiate (direct match official OR tournament official)",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "variable": [
@@ -119,7 +119,46 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json.success && json.sessionId) {",
+                                    "    pm.collectionVariables.set('sessionId', json.sessionId);",
+                                    "    if (json.user && json.user.id) pm.collectionVariables.set('userId', json.user.id);",
+                                    "    console.log('sessionId saved:', json.sessionId);",
+                                    "}",
+                                    "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "200 — Success (sessionId auto-saved)",
+                            "originalRequest": {"method": "POST", "header": [], "url": {"raw": "{{baseUrl}}/api/auth/verify-otp", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-otp"]}, "body": {"mode": "raw", "raw": "{\"phone\": \"+919876543210\", \"code\": \"123456\"}"}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"sessionId\": \"sess_abc123xyz789\",\n    \"user\": {\n        \"id\": \"usr_abc123\",\n        \"phone\": \"+919876543210\",\n        \"name\": \"Rahul Sharma\",\n        \"isNew\": false\n    }\n}"
+                        },
+                        {
+                            "name": "400 — Invalid OTP",
+                            "originalRequest": {"method": "POST", "header": [], "url": {"raw": "{{baseUrl}}/api/auth/verify-otp", "host": ["{{baseUrl}}"], "path": ["api", "auth", "verify-otp"]}, "body": {"mode": "raw", "raw": "{\"phone\": \"+919876543210\", \"code\": \"000000\"}"}},
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"INVALID_OTP\"\n}"
+                        }
+                    ]
                 },
                 {
                     "name": "Verify Session",
@@ -1146,7 +1185,45 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json.success && json.data && json.data.id) {",
+                                    "    pm.collectionVariables.set('tournamentId', json.data.id);",
+                                    "    console.log('tournamentId saved:', json.data.id);",
+                                    "}",
+                                    "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "201 — Tournament Created (tournamentId auto-saved)",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/tournaments", "host": ["{{baseUrl}}"], "path": ["api", "tournaments"]}},
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"data\": {\n        \"id\": \"tourn_abc123\",\n        \"name\": \"Mumbai Badminton Open 2026\",\n        \"sportCode\": \"BADMINTON\",\n        \"tournamentType\": \"SINGLE_ELIMINATION\",\n        \"status\": \"DRAFT\",\n        \"isPublic\": true,\n        \"entryFee\": 500,\n        \"city\": \"Mumbai\",\n        \"startDate\": \"2026-05-01T09:00:00.000Z\",\n        \"endDate\": \"2026-05-03T18:00:00.000Z\",\n        \"createdAt\": \"2026-05-16T10:00:00.000Z\",\n        \"personnel\": [\n            {\"userId\": \"usr_organizer\", \"role\": \"ORGANIZER\", \"isPrimary\": true}\n        ]\n    }\n}"
+                        },
+                        {
+                            "name": "400 — Missing Required Fields",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/tournaments", "host": ["{{baseUrl}}"], "path": ["api", "tournaments"]}},
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"name, sportCode, tournamentType, startDate are required\"\n}"
+                        }
+                    ]
                 },
                 {
                     "name": "List Tournaments",
@@ -1374,8 +1451,31 @@
                                 "{{tournamentId}}",
                                 "matchmaking"
                             ]
+                        },
+                        "description": "🔐 Auth required — Tournament official only\n\nGenerates knockout bracket matches for a PUBLISHED tournament.\nTournament must have status=PUBLISHED.\n\nWho can call: any Personnel with entityType=TOURNAMENT for this tournament.\nError: 403 UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL if not a tournament official."
+                    },
+                    "response": [
+                        {
+                            "name": "200 — Bracket Generated",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/matchmaking", "host": ["{{baseUrl}}"], "path": ["api", "tournaments", "{{tournamentId}}", "matchmaking"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"data\": {\n        \"round\": 1,\n        \"matches\": [\n            {\"id\": \"match_r1m1\", \"round\": 1, \"position\": 1, \"status\": \"PENDING\"},\n            {\"id\": \"match_r1m2\", \"round\": 1, \"position\": 2, \"status\": \"PENDING\"}\n        ]\n    }\n}"
+                        },
+                        {
+                            "name": "403 — Not a Tournament Official",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/matchmaking", "host": ["{{baseUrl}}"], "path": ["api", "tournaments", "{{tournamentId}}", "matchmaking"]}},
+                            "status": "Forbidden",
+                            "code": 403,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL\"\n}"
                         }
-                    }
+                    ]
                 },
                 {
                     "name": "Advance Tournament Round",
@@ -1399,8 +1499,31 @@
                                 "rounds",
                                 "next"
                             ]
+                        },
+                        "description": "🔐 Auth required — Tournament official only\n\nAdvances to the next round by creating the next set of knockout matches.\n\nWho can call: any Personnel with entityType=TOURNAMENT for this tournament.\nError: 403 UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL if not a tournament official."
+                    },
+                    "response": [
+                        {
+                            "name": "200 — Next Round Created",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/rounds/next", "host": ["{{baseUrl}}"], "path": ["api", "tournaments", "{{tournamentId}}", "rounds", "next"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"data\": {\n        \"round\": 2,\n        \"matches\": [\n            {\"id\": \"match_r2m1\", \"round\": 2, \"position\": 1, \"status\": \"PENDING\"}\n        ]\n    }\n}"
+                        },
+                        {
+                            "name": "403 — Not a Tournament Official",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/tournaments/{{tournamentId}}/rounds/next", "host": ["{{baseUrl}}"], "path": ["api", "tournaments", "{{tournamentId}}", "rounds", "next"]}},
+                            "status": "Forbidden",
+                            "code": 403,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"UNAUTHORIZED_NOT_TOURNAMENT_OFFICIAL\"\n}"
                         }
-                    }
+                    ]
                 },
                 {
                     "name": "Participants",
@@ -1819,7 +1942,45 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    "event": [
+                        {
+                            "listen": "test",
+                            "script": {
+                                "type": "text/javascript",
+                                "exec": [
+                                    "const json = pm.response.json();",
+                                    "if (json.success && json.data && json.data.id) {",
+                                    "    pm.collectionVariables.set('matchId', json.data.id);",
+                                    "    console.log('matchId saved:', json.data.id);",
+                                    "}",
+                                    "pm.test('Status 201', () => pm.response.to.have.status(201));"
+                                ]
+                            }
+                        }
+                    ],
+                    "response": [
+                        {
+                            "name": "201 — Match Created (matchId auto-saved)",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches", "host": ["{{baseUrl}}"], "path": ["api", "matches"]}},
+                            "status": "Created",
+                            "code": 201,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"message\": \"MATCH_CREATED\",\n    \"data\": {\n        \"id\": \"match_abc123\",\n        \"name\": \"Friendly Match\",\n        \"sportCode\": \"BADMINTON\",\n        \"gameType\": \"SINGLES\",\n        \"status\": \"SCHEDULED\",\n        \"partsCount\": 3,\n        \"tournamentId\": null,\n        \"createdAt\": \"2026-05-16T10:00:00.000Z\",\n        \"participants\": [\n            {\"id\": \"mp_1\", \"userId\": \"usr_player1\", \"side\": \"LEFT\"},\n            {\"id\": \"mp_2\", \"userId\": \"usr_player2\", \"side\": \"RIGHT\"}\n        ],\n        \"personnel\": [\n            {\"userId\": \"usr_referee\", \"role\": \"REFEREE\", \"isPrimary\": true}\n        ]\n    }\n}"
+                        },
+                        {
+                            "name": "400 — Missing Required Fields",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches", "host": ["{{baseUrl}}"], "path": ["api", "matches"]}},
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"sportCode and gameType are required\"\n}"
+                        }
+                    ]
                 },
                 {
                     "name": "List Matches",
@@ -1858,12 +2019,19 @@
                                     "key": "status",
                                     "value": "SCHEDULED",
                                     "disabled": true,
-                                    "description": "SCHEDULED | ONGOING | COMPLETED"
+                                    "description": "SCHEDULED | LIVE | COMPLETED | CANCELLED | PENDING"
                                 },
                                 {
                                     "key": "scope",
                                     "value": "my",
-                                    "disabled": true
+                                    "disabled": true,
+                                    "description": "my = matches I play in | official = matches I officiate (direct or via tournament)"
+                                },
+                                {
+                                    "key": "scope",
+                                    "value": "official",
+                                    "disabled": true,
+                                    "description": "Returns all matches where the caller is a match official OR a tournament official"
                                 }
                             ]
                         }
@@ -1913,8 +2081,31 @@
                                 "{{matchId}}",
                                 "start"
                             ]
+                        },
+                        "description": "🔐 Auth required\n\nWho can start a match:\n- Manual match → only assigned match officials (Personnel with entityType=MATCH)\n- Tournament match → match officials OR any tournament official (Personnel with entityType=TOURNAMENT)\n\nError: 400 UNAUTHORIZED_NOT_MATCH_OFFICIAL if caller has no Personnel record"
+                    },
+                    "response": [
+                        {
+                            "name": "200 — Match Started",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/start", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "start"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"message\": \"Match started\",\n    \"data\": {\n        \"id\": \"match_abc123\",\n        \"status\": \"LIVE\",\n        \"startedAt\": \"2026-05-16T10:00:00.000Z\"\n    }\n}"
+                        },
+                        {
+                            "name": "400 — Unauthorized",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/start", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "start"]}},
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"UNAUTHORIZED_NOT_MATCH_OFFICIAL\"\n}"
                         }
-                    }
+                    ]
                 },
                 {
                     "name": "Record Match Event",
@@ -1948,7 +2139,39 @@
                                 }
                             }
                         }
-                    }
+                    },
+                    "response": [
+                        {
+                            "name": "200 — Score Recorded",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/events/record", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "events", "record"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"message\": \"Event recorded\",\n    \"data\": {\n        \"matchId\": \"match_abc123\",\n        \"currentPart\": 1,\n        \"p1Score\": 6,\n        \"p2Score\": 4,\n        \"isMatchComplete\": false,\n        \"winner\": null,\n        \"servingParticipantId\": \"mp_1\"\n    }\n}"
+                        },
+                        {
+                            "name": "200 — Match Complete",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/events/record", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "events", "record"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"message\": \"Event recorded\",\n    \"data\": {\n        \"matchId\": \"match_abc123\",\n        \"currentPart\": 3,\n        \"p1Score\": 21,\n        \"p2Score\": 18,\n        \"isMatchComplete\": true,\n        \"winner\": {\"participantId\": \"mp_1\", \"userId\": \"usr_player1\"},\n        \"matchStatus\": \"COMPLETED\"\n    }\n}"
+                        },
+                        {
+                            "name": "400 — Match Not Live",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/events/record", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "events", "record"]}},
+                            "status": "Bad Request",
+                            "code": 400,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": false,\n    \"message\": \"MATCH_NOT_LIVE\"\n}"
+                        }
+                    ]
                 },
                 {
                     "name": "Get Live Match State",
@@ -1972,7 +2195,19 @@
                                 "live"
                             ]
                         }
-                    }
+                    },
+                    "response": [
+                        {
+                            "name": "200 — Live State",
+                            "originalRequest": {"method": "GET", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/live", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "live"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"data\": {\n        \"matchId\": \"match_abc123\",\n        \"status\": \"LIVE\",\n        \"gameType\": \"SINGLES\",\n        \"currentPart\": 1,\n        \"servingParticipantId\": \"mp_1\",\n        \"score\": {\"p1\": 6, \"p2\": 4},\n        \"parts\": [\n            {\"partNumber\": 1, \"p1Score\": 6, \"p2Score\": 4, \"isComplete\": false},\n            {\"partNumber\": 2, \"p1Score\": 0, \"p2Score\": 0, \"isComplete\": false},\n            {\"partNumber\": 3, \"p1Score\": 0, \"p2Score\": 0, \"isComplete\": false}\n        ],\n        \"participants\": [\n            {\"id\": \"mp_1\", \"side\": \"LEFT\", \"userId\": \"usr_player1\"},\n            {\"id\": \"mp_2\", \"side\": \"RIGHT\", \"userId\": \"usr_player2\"}\n        ]\n    }\n}"
+                        }
+                    ]
                 },
                 {
                     "name": "End Match",
@@ -1996,7 +2231,19 @@
                                 "end"
                             ]
                         }
-                    }
+                    },
+                    "response": [
+                        {
+                            "name": "200 — Match Ended",
+                            "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/matches/{{matchId}}/end", "host": ["{{baseUrl}}"], "path": ["api", "matches", "{{matchId}}", "end"]}},
+                            "status": "OK",
+                            "code": 200,
+                            "_postman_previewlanguage": "json",
+                            "header": [{"key": "Content-Type", "value": "application/json"}],
+                            "cookie": [],
+                            "body": "{\n    \"success\": true,\n    \"message\": \"Match completed\",\n    \"data\": {\n        \"id\": \"match_abc123\",\n        \"status\": \"COMPLETED\",\n        \"endedAt\": \"2026-05-16T11:00:00.000Z\",\n        \"winner\": {\n            \"participantId\": \"mp_1\",\n            \"userId\": \"usr_player1\"\n        },\n        \"finalScore\": {\n            \"p1Parts\": 2,\n            \"p2Parts\": 1,\n            \"parts\": [\n                {\"partNumber\": 1, \"p1Score\": 21, \"p2Score\": 15},\n                {\"partNumber\": 2, \"p1Score\": 18, \"p2Score\": 21},\n                {\"partNumber\": 3, \"p1Score\": 21, \"p2Score\": 17}\n            ]\n        }\n    }\n}"
+                        }
+                    ]
                 }
             ]
         },
@@ -2078,8 +2325,31 @@
                                             "language": "json"
                                         }
                                     }
+                                },
+                                "description": "🔐 Auth required — Primary tournament official only\n\nOnly the user with isPrimary=true on this tournament can add new officials.\nError: 403 UNAUTHORIZED_NOT_TOURNAMENT_OWNER\n\nrole options: ORGANIZER | REFEREE | UMPIRE | SCOREKEEPER\nisPrimary: true only for the main organizer"
+                            },
+                            "response": [
+                                {
+                                    "name": "200 — Officials Added",
+                                    "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/personnel/tournaments/{{tournamentId}}/personnel", "host": ["{{baseUrl}}"], "path": ["api", "personnel", "tournaments", "{{tournamentId}}", "personnel"]}},
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                                    "cookie": [],
+                                    "body": "{\n    \"success\": true,\n    \"message\": \"Personnel added successfully\",\n    \"data\": [\n        {\"id\": \"per_xyz\", \"entityType\": \"TOURNAMENT\", \"entityId\": \"trn_abc123\", \"userId\": \"usr_referee1\", \"role\": \"REFEREE\", \"isPrimary\": false, \"joinedAt\": \"2026-05-16T09:00:00.000Z\"}\n    ]\n}"
+                                },
+                                {
+                                    "name": "403 — Not Primary Official",
+                                    "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/personnel/tournaments/{{tournamentId}}/personnel", "host": ["{{baseUrl}}"], "path": ["api", "personnel", "tournaments", "{{tournamentId}}", "personnel"]}},
+                                    "status": "Forbidden",
+                                    "code": 403,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                                    "cookie": [],
+                                    "body": "{\n    \"success\": false,\n    \"message\": \"UNAUTHORIZED_NOT_TOURNAMENT_OWNER\"\n}"
                                 }
-                            }
+                            ]
                         },
                         {
                             "name": "Get Tournament Personnel",
@@ -2145,7 +2415,8 @@
                                             "language": "json"
                                         }
                                     }
-                                }
+                                },
+                                "description": "🔐 Auth required — Primary tournament official only\n\nOnly the user with isPrimary=true on this tournament can update other officials.\nError: 403 UNAUTHORIZED_NOT_TOURNAMENT_OWNER"
                             }
                         },
                         {
@@ -2171,7 +2442,8 @@
                                         "personnel",
                                         "{{userId}}"
                                     ]
-                                }
+                                },
+                                "description": "🔐 Auth required — Primary tournament official only\n\nOnly the user with isPrimary=true on this tournament can remove other officials.\nError: 403 UNAUTHORIZED_NOT_TOURNAMENT_OWNER"
                             }
                         }
                     ]
@@ -2210,8 +2482,31 @@
                                             "language": "json"
                                         }
                                     }
+                                },
+                                "description": "🔐 Auth required\n\nWho can add match officials:\n- Manual match → only the primary match official (isPrimary=true)\n- Tournament match → primary match official OR any tournament official\n\nError: 403 UNAUTHORIZED_NOT_MATCH_OWNER"
+                            },
+                            "response": [
+                                {
+                                    "name": "200 — Official Added",
+                                    "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/personnel/matches/{{matchId}}/personnel", "host": ["{{baseUrl}}"], "path": ["api", "personnel", "matches", "{{matchId}}", "personnel"]}},
+                                    "status": "OK",
+                                    "code": 200,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                                    "cookie": [],
+                                    "body": "{\n    \"success\": true,\n    \"message\": \"Personnel added successfully\",\n    \"data\": [\n        {\"id\": \"per_abc\", \"entityType\": \"MATCH\", \"entityId\": \"match_abc123\", \"userId\": \"usr_referee1\", \"role\": \"REFEREE\", \"isPrimary\": true, \"joinedAt\": \"2026-05-16T09:00:00.000Z\"}\n    ]\n}"
+                                },
+                                {
+                                    "name": "403 — Not Match Owner",
+                                    "originalRequest": {"method": "POST", "header": [{"key": "x-session-id", "value": "{{sessionId}}"}], "url": {"raw": "{{baseUrl}}/api/personnel/matches/{{matchId}}/personnel", "host": ["{{baseUrl}}"], "path": ["api", "personnel", "matches", "{{matchId}}", "personnel"]}},
+                                    "status": "Forbidden",
+                                    "code": 403,
+                                    "_postman_previewlanguage": "json",
+                                    "header": [{"key": "Content-Type", "value": "application/json"}],
+                                    "cookie": [],
+                                    "body": "{\n    \"success\": false,\n    \"message\": \"UNAUTHORIZED_NOT_MATCH_OWNER\"\n}"
                                 }
-                            }
+                            ]
                         },
                         {
                             "name": "Get Match Personnel",
