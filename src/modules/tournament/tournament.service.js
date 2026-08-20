@@ -1321,6 +1321,8 @@ export const listTournaments = async ({
 
     const where = {};
 
+    console.log(`🔍 listTournaments called with scope=${scope}, requesterId=${requesterId}`);
+    
     /* ------------------
        STATUS FILTER
     ------------------ */
