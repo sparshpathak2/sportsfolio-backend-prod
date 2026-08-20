@@ -25,7 +25,7 @@ router.post("/", invite);
 // GET /api/users/:userId/invitations
 router.get("/", (req, res, next) => {
    // const { tournamentId, matchId } = req.query;
-   const { tournamentId, matchId } = req.params;
+   const { tournamentId, matchId, teamId } = req.params;
 
    if (tournamentId || matchId) {
       return listInvitationsByTargetId(req, res, next);

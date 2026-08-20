@@ -114,12 +114,33 @@ export const listInvitations = async (req, res) => {
 };
 
 
+// export const listInvitationsByUserId = async (req, res) => {
+//     try {
+//         const userId = req.params.userId;
+
+//         const { data, count } =
+//             await invitationService.listInvitationsByUserId(userId);
+
+//         res.json({
+//             success: true,
+//             count,
+//             data,
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const listInvitationsByUserId = async (req, res) => {
     try {
         const userId = req.params.userId;
+        const { status } = req.query;
 
         const { data, count } =
-            await invitationService.listInvitationsByUserId(userId);
+            await invitationService.listInvitationsByUserId(userId, status);
 
         res.json({
             success: true,
@@ -127,6 +148,8 @@ export const listInvitationsByUserId = async (req, res) => {
             data,
         });
     } catch (error) {
+        console.error("List User Invitations Error:", error);
+
         res.status(500).json({
             success: false,
             message: error.message,
