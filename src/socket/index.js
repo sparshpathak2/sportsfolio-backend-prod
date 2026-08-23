@@ -321,6 +321,60 @@ export const initializeSocket = (io) => {
         // ============================================
         // UNDO LAST SCORE - Only participants can undo
         // ============================================
+        // socket.on("undo-last", async () => {
+        //     try {
+        //         if (!socket.matchId) {
+        //             socket.emit("error", { message: "Not in any match room" });
+        //             return;
+        //         }
+
+        //         console.log(`↩️ Undo requested for match ${socket.matchId} by user ${socket.userId}`);
+
+        //         // Check if user is a participant
+        //         const participant = await prisma.matchParticipant.findFirst({
+        //             where: {
+        //                 matchId: socket.matchId,
+        //                 userId: socket.userId
+        //             }
+        //         });
+
+        //         if (!participant) {
+        //             socket.emit("error", { message: "Only match participants can undo scores" });
+        //             return;
+        //         }
+
+        //         // Call the undo service
+        //         const result = await undoLastScore({
+        //             matchId: socket.matchId,
+        //             requestedByUserId: socket.userId
+        //         });
+
+        //         // Get updated match state
+        //         const updatedMatch = await getMatchState(socket.matchId);
+
+        //         // Broadcast to everyone
+        //         io.to(`match:${socket.matchId}`).emit("match-update", {
+        //             type: "undo",
+        //             match: updatedMatch,
+        //             timestamp: new Date().toISOString()
+        //         });
+
+        //         // Confirm to requester
+        //         socket.emit("undo-confirmed", {
+        //             success: true,
+        //             message: "Last score undone successfully"
+        //         });
+
+        //     } catch (error) {
+        //         console.error("❌ Error undoing last score:", error);
+        //         socket.emit("error", { message: error.message });
+        //     }
+        // });
+
+        // ============================================
+        // UNDO LAST SCORE - Same authorization as score-event:
+        // only match/tournament owners or officials can undo
+        // ============================================
         socket.on("undo-last", async () => {
             try {
                 if (!socket.matchId) {
@@ -330,16 +384,28 @@ export const initializeSocket = (io) => {
 
                 console.log(`↩️ Undo requested for match ${socket.matchId} by user ${socket.userId}`);
 
-                // Check if user is a participant
-                const participant = await prisma.matchParticipant.findFirst({
-                    where: {
-                        matchId: socket.matchId,
-                        userId: socket.userId
-                    }
+                // ✅ RESTRICTED: Only match/tournament owners or officials can undo scores
+                // (mirrors the score-event authorization check, since whoever can
+                // enter a score should be able to correct their own mistake)
+                const match = await prisma.match.findUnique({
+                    where: { id: socket.matchId },
+                    select: { tournamentId: true }
                 });
 
-                if (!participant) {
-                    socket.emit("error", { message: "Only match participants can undo scores" });
+                const [matchPersonnel, tournamentPersonnel] = await Promise.all([
+                    prisma.personnel.findFirst({
+                        where: { entityType: "MATCH", entityId: socket.matchId, userId: socket.userId }
+                    }),
+                    match?.tournamentId
+                        ? prisma.personnel.findFirst({
+                            where: { entityType: "TOURNAMENT", entityId: match.tournamentId, userId: socket.userId }
+                        })
+                        : Promise.resolve(null)
+                ]);
+
+                if (!matchPersonnel && !tournamentPersonnel) {
+                    console.log(`❌ Unauthorized user ${socket.userId} tried to undo in match ${socket.matchId}`);
+                    socket.emit("error", { message: "Only match/tournament owners or officials can undo scores" });
                     return;
                 }
 
