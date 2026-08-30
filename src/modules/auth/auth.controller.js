@@ -41,8 +41,49 @@ import { FIREBASE_API_KEY, verifyIdToken } from "../../lib/firebase.js";
 
 // Custom OTP (hash-based, pairs with verifyOtp below)
 
+// export const requestOtp = async (req, res) => {
+//     const { phone, fcmToken } = req.body;
+
+//     if (!phone) {
+//         return res.status(400).json({ message: "Phone is required" });
+//     }
+
+//     let user = await prisma.user.findUnique({ where: { phone } });
+
+//     if (!user) {
+//         user = await prisma.user.create({
+//             data: { phone, ...(fcmToken && { fcmToken }) },
+//         });
+//     } else if (fcmToken) {
+//         user = await prisma.user.update({
+//             where: { phone },
+//             data: { fcmToken },
+//         });
+//     }
+
+//     try {
+//         const otp = "123456";
+//         const hashedOtp = hashOtp(otp);
+//         const expiresAt = otpExpiry(5);
+
+//         await prisma.oTP.create({
+//             data: { phone, code: hashedOtp, expiresAt, verified: false },
+//         });
+
+//         // In production, send OTP via SMS service here instead of returning it
+//         if (process.env.NODE_ENV !== "production") {
+//             return res.json({ success: true, otp, expiresIn: 300 });
+//         }
+
+//         return res.json({ success: true, expiresIn: 300 });
+//     } catch (error) {
+//         console.error("OTP generation error:", error.message);
+//         return res.status(500).json({ success: false, message: "Failed to generate OTP" });
+//     }
+// };
+
 export const requestOtp = async (req, res) => {
-    const { phone, fcmToken } = req.body;
+    const { phone } = req.body;
 
     if (!phone) {
         return res.status(400).json({ message: "Phone is required" });
@@ -52,12 +93,7 @@ export const requestOtp = async (req, res) => {
 
     if (!user) {
         user = await prisma.user.create({
-            data: { phone, ...(fcmToken && { fcmToken }) },
-        });
-    } else if (fcmToken) {
-        user = await prisma.user.update({
-            where: { phone },
-            data: { fcmToken },
+            data: { phone },
         });
     }
 
@@ -84,9 +120,96 @@ export const requestOtp = async (req, res) => {
 
 // Verify OTP for testing
 
+// export const verifyOtp = async (req, res) => {
+//     try {
+//         const { phone, otp } = req.body;
+
+//         if (!phone || !otp) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Phone and OTP required",
+//             });
+//         }
+
+//         // 1️⃣ Find latest valid OTP
+//         const otpRecord = await prisma.oTP.findFirst({
+//             where: {
+//                 phone,
+//                 verified: false,
+//                 expiresAt: { gt: new Date() },
+//             },
+//             orderBy: { createdAt: "desc" },
+//         });
+
+//         if (!otpRecord) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Invalid or expired OTP",
+//             });
+//         }
+
+//         // 2️⃣ Compare hashed OTP
+//         const hashedInputOtp = hashOtp(otp);
+
+//         if (hashedInputOtp !== otpRecord.code) {
+//             return res.status(400).json({
+//                 success: false,
+//                 message: "Incorrect OTP",
+//             });
+//         }
+
+//         // 3️⃣ Fetch user
+//         const user = await prisma.user.findUnique({
+//             where: { phone },
+//         });
+
+//         if (!user) {
+//             return res.status(404).json({
+//                 success: false,
+//                 message: "User not found",
+//             });
+//         }
+
+//         // 4️⃣ Create session (7 days)
+//         const session = await prisma.session.create({
+//             data: {
+//                 userId: user.id,
+//                 expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+//             },
+//         });
+
+//         // 5️⃣ Mark OTP verified
+//         await prisma.oTP.updateMany({
+//             where: { phone, verified: false },
+//             data: { verified: true },
+//         });
+
+//         // 6️⃣ Set cookie (optional)
+//         res.cookie("sessionId", session.id, {
+//             httpOnly: true,
+//             sameSite: "lax",
+//             secure: false,
+//             maxAge: 7 * 24 * 60 * 60 * 1000,
+//         });
+
+//         return res.json({
+//             success: true,
+//             sessionId: session.id,
+//             user,
+//         });
+
+//     } catch (error) {
+//         console.error("Verify OTP error:", error.message);
+//         return res.status(500).json({
+//             success: false,
+//             message: "OTP verification failed",
+//         });
+//     }
+// };
+
 export const verifyOtp = async (req, res) => {
     try {
-        const { phone, otp } = req.body;
+        const { phone, otp, fcmToken } = req.body;
 
         if (!phone || !otp) {
             return res.status(400).json({
@@ -123,7 +246,7 @@ export const verifyOtp = async (req, res) => {
         }
 
         // 3️⃣ Fetch user
-        const user = await prisma.user.findUnique({
+        let user = await prisma.user.findUnique({
             where: { phone },
         });
 
@@ -131,6 +254,14 @@ export const verifyOtp = async (req, res) => {
             return res.status(404).json({
                 success: false,
                 message: "User not found",
+            });
+        }
+
+        // 3.5️⃣ Save FCM token if provided
+        if (fcmToken) {
+            user = await prisma.user.update({
+                where: { phone },
+                data: { fcmToken },
             });
         }
 
