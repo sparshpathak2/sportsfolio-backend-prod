@@ -2423,8 +2423,35 @@ export const updateTournament = async (id, data) => {
         });
 
         // 🔥 FIX: Use addPersonnel instead of manual creation
+        // if (data.personnel !== undefined) {
+        //     // Remove all existing personnel
+        //     await tx.personnel.deleteMany({
+        //         where: {
+        //             entityType: "TOURNAMENT",
+        //             entityId: id
+        //         }
+        //     });
+
+        //     // Add new personnel using the service function
+        //     if (data.personnel.length) {
+        //         await addPersonnel({
+        //             tx,
+        //             entityType: "TOURNAMENT",
+        //             entityId: id,
+        //             personnel: data.personnel,
+        //             skipValidation: true
+        //         });
+        //     }
+        // }
+
+        // 🔥 FIX: Preserve the original ORGANIZER even if the update payload
+        // omits them — without this, a PUT that sends a personnel array
+        // without the creator silently strips their organizer access.
         if (data.personnel !== undefined) {
-            // Remove all existing personnel
+            const existingOrganizer = await tx.personnel.findFirst({
+                where: { entityType: "TOURNAMENT", entityId: id, role: "ORGANIZER", isPrimary: true }
+            });
+
             await tx.personnel.deleteMany({
                 where: {
                     entityType: "TOURNAMENT",
@@ -2432,13 +2459,19 @@ export const updateTournament = async (id, data) => {
                 }
             });
 
-            // Add new personnel using the service function
-            if (data.personnel.length) {
+            const personnelToAdd = existingOrganizer
+                ? [
+                    { userId: existingOrganizer.userId, role: "ORGANIZER", isPrimary: true },
+                    ...data.personnel.filter(p => p.userId !== existingOrganizer.userId)
+                  ]
+                : data.personnel;
+
+            if (personnelToAdd.length) {
                 await addPersonnel({
                     tx,
                     entityType: "TOURNAMENT",
                     entityId: id,
-                    personnel: data.personnel,
+                    personnel: personnelToAdd,
                     skipValidation: true
                 });
             }
