@@ -18,6 +18,8 @@ router.post("/", tournamentController.createTournament);
 router.get("/", tournamentController.listTournaments);
 router.get("/my", tournamentController.getMyTournaments);
 router.get("/public", tournamentController.getPublicTournaments);
+router.get("/trending", tournamentController.getTrendingTournaments);
+router.get("/discover", tournamentController.getDiscoverTournaments);
 router.get("/:tournamentId", tournamentController.getTournament);
 router.put("/:tournamentId", tournamentController.updateTournament);
 router.delete("/:tournamentId", tournamentController.deleteTournament);

@@ -287,6 +287,50 @@ export const getTournament = async (req, res) => {
     }
 };
 
+export const getTrendingTournaments = async (req, res) => {
+    try {
+        const { limit = 10 } = req.query;
+
+        const tournaments = await tournamentService.getTrendingTournaments({
+            limit: Number(limit),
+            requesterId: req.user?.id,
+        });
+
+        res.json({
+            success: true,
+            data: tournaments,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message,
+        });
+    }
+};
+
+export const getDiscoverTournaments = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+
+        if (!req.user?.id) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required",
+            });
+        }
+
+        const tournaments = await tournamentService.getDiscoverTournaments({
+            requesterId: req.user.id,
+            page: Number(page),
+            limit: Number(limit),
+        });
+
+        res.json({ success: true, ...tournaments });
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
+
 
 // export const updateTournament = async (req, res) => {
 //     try {
