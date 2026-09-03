@@ -1914,12 +1914,12 @@ export const getDiscoverTournaments = async ({ requesterId, page = 1, limit = 10
 
     const where = {
         OR: [
-            // 1️⃣ Tournaments I'm part of, any status/visibility
+            // 1️⃣ Tournaments I'm part of — no other restriction
             { id: { in: myTournamentIds } },
-            // 2️⃣ Public tournaments that are ongoing or upcoming (not completed)
+            // 2️⃣ Public tournaments that are published or ongoing, and haven't ended
             {
                 isPublic: true,
-                status: { not: "COMPLETED" },
+                status: { in: ["PUBLISHED", "ONGOING"] },
                 OR: [
                     { endDate: null },
                     { endDate: { gte: now } }
