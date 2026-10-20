@@ -155,12 +155,13 @@ export const requestOtp = async (req, res) => {
 
         const otp = isTestNumber ? "123456" : String(generateOtp());
         const hashedOtp = hashOtp(otp);
-        const expiresAt = otpExpiry(5);
+        const expiresAt = otpExpiry(10);
 
         await prisma.oTP.create({
             data: { phone, code: hashedOtp, expiresAt, verified: false },
         });
 
+        // Real SMS only in production, and never for test numbers
         if (isProd && !isTestNumber) {
             try {
                 await sendOtpSms(phone, otp);
@@ -168,14 +169,14 @@ export const requestOtp = async (req, res) => {
                 console.error("SMS send error:", smsError.message);
                 return res.status(502).json({ success: false, message: "Failed to send OTP SMS" });
             }
-            return res.json({ success: true, expiresIn: 300 });
         }
 
-        // Non-prod or test number: return OTP directly, no SMS sent
-        if (!isProd) {
-            return res.json({ success: true, otp, expiresIn: 300 });
-        }
-        return res.json({ success: true, expiresIn: 300 });
+        // OTP is returned in the response only outside production
+        return res.json({
+            success: true,
+            expiresIn: 600,
+            ...(!isProd && { otp }),
+        });
     } catch (error) {
         console.error("OTP generation error:", error.message);
         return res.status(500).json({ success: false, message: "Failed to generate OTP" });
