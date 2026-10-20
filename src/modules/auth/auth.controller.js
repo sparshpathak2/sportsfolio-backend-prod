@@ -2,6 +2,7 @@ import prisma from "../../lib/prisma.js";
 import { generateOtp, hashOtp, otpExpiry } from "../../utils/otp.utils.js";
 import axios from "axios";
 import { FIREBASE_API_KEY, verifyIdToken } from "../../lib/firebase.js";
+import { sendOtpSms } from "../../lib/smsProvider.js";
 // import { requestOtpService, verifyOtpService } from "./auth.service.js";
 
 // Firebase otp Request (requires client-side reCAPTCHA/SafetyNet — cannot be called from server directly)
@@ -82,12 +83,55 @@ import { FIREBASE_API_KEY, verifyIdToken } from "../../lib/firebase.js";
 //     }
 // };
 
+// export const requestOtp = async (req, res) => {
+//     const { phone } = req.body;
+
+//     if (!phone) {
+//         return res.status(400).json({ message: "Phone is required" });
+//     }
+
+//     let user = await prisma.user.findUnique({ where: { phone } });
+
+//     if (!user) {
+//         user = await prisma.user.create({
+//             data: { phone },
+//         });
+//     }
+
+//     try {
+//         const otp = "123456";
+//         const hashedOtp = hashOtp(otp);
+//         const expiresAt = otpExpiry(5);
+
+//         await prisma.oTP.create({
+//             data: { phone, code: hashedOtp, expiresAt, verified: false },
+//         });
+
+//         // In production, send OTP via SMS service here instead of returning it
+//         if (process.env.NODE_ENV !== "production") {
+//             return res.json({ success: true, otp, expiresIn: 300 });
+//         }
+
+//         return res.json({ success: true, expiresIn: 300 });
+//     } catch (error) {
+//         console.error("OTP generation error:", error.message);
+//         return res.status(500).json({ success: false, message: "Failed to generate OTP" });
+//     }
+// };
+
 export const requestOtp = async (req, res) => {
     const { phone } = req.body;
 
     if (!phone) {
         return res.status(400).json({ message: "Phone is required" });
     }
+
+    const isProd = process.env.NODE_ENV === "production";
+    const testNumbers = (process.env.OTP_TEST_NUMBERS || "")
+        .split(",")
+        .map((n) => n.trim())
+        .filter(Boolean);
+    const isTestNumber = testNumbers.includes(phone);
 
     let user = await prisma.user.findUnique({ where: { phone } });
 
@@ -98,7 +142,18 @@ export const requestOtp = async (req, res) => {
     }
 
     try {
-        const otp = "123456";
+        // Cooldown: block repeat requests within 60s (protects SMS credits)
+        const recent = await prisma.oTP.findFirst({
+            where: { phone, createdAt: { gt: new Date(Date.now() - 60 * 1000) } },
+        });
+        if (recent) {
+            return res.status(429).json({
+                success: false,
+                message: "Please wait before requesting another OTP",
+            });
+        }
+
+        const otp = isTestNumber ? "123456" : String(generateOtp());
         const hashedOtp = hashOtp(otp);
         const expiresAt = otpExpiry(5);
 
@@ -106,11 +161,20 @@ export const requestOtp = async (req, res) => {
             data: { phone, code: hashedOtp, expiresAt, verified: false },
         });
 
-        // In production, send OTP via SMS service here instead of returning it
-        if (process.env.NODE_ENV !== "production") {
-            return res.json({ success: true, otp, expiresIn: 300 });
+        if (isProd && !isTestNumber) {
+            try {
+                await sendOtpSms(phone, otp);
+            } catch (smsError) {
+                console.error("SMS send error:", smsError.message);
+                return res.status(502).json({ success: false, message: "Failed to send OTP SMS" });
+            }
+            return res.json({ success: true, expiresIn: 300 });
         }
 
+        // Non-prod or test number: return OTP directly, no SMS sent
+        if (!isProd) {
+            return res.json({ success: true, otp, expiresIn: 300 });
+        }
         return res.json({ success: true, expiresIn: 300 });
     } catch (error) {
         console.error("OTP generation error:", error.message);
