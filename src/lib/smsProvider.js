@@ -1,4 +1,5 @@
 import axios from "axios";
+import { logger, maskPhone } from "./logger.js";
 
 const SMS_API_BASE_URL = "https://sms.hitechsms.com/app/smsapi/index.php";
 
@@ -43,11 +44,21 @@ export const sendOtpSms = async (phone, otp) => {
         template_id: SMS_TEMPLATE_ID,
     });
 
-    const response = await axios.get(`${SMS_API_BASE_URL}?${params.toString()}`);
+    let response;
+    try {
+        response = await axios.get(`${SMS_API_BASE_URL}?${params.toString()}`, {
+            timeout: 10000,
+        });
+    } catch (error) {
+        // Axios errors carry the full request URL (API key + OTP). Never let them escape.
+        const reason = error.response ? `HTTP ${error.response.status}` : error.code || "UNKNOWN";
+        throw new Error(`SMS_REQUEST_FAILED: ${reason}`);
+    }
+
     const body = String(response.data).trim();
 
-    // Log the vendor response only, never the OTP or API key
-    console.log(`📲 SMS provider response for ${contact}:`, body);
+    // Log the vendor response only, never the OTP or API key; phone is masked
+    logger.info({ phone: maskPhone(contact), providerResponse: body }, "SMS provider response");
 
     if (body.startsWith("ERR:")) {
         throw new Error(`SMS_SEND_FAILED: ${body}`);
