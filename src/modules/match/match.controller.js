@@ -1,5 +1,6 @@
 import * as matchService from "./match.service.js";
 import prisma from "../../lib/prisma.js";
+import { parseGeoFilter, isGeoError } from "../../utils/geoFilter.utils.js";
 
 export const parseIfString = (input) => {
     if (!input) return null;
@@ -750,6 +751,42 @@ export const getMatchById = async (req, res) => {
     });
 };
 
+// export const listMatches = async (req, res) => {
+//     try {
+//         const {
+//             tournamentId,
+//             status,        // upcoming | ongoing | completed | SCHEDULED | LIVE | COMPLETED | CANCELLED
+//             scope = "all", // all | my
+//             page = 1,
+//             limit = 10,
+//         } = req.query;
+
+//         const requesterId = req.user?.id;
+
+//         // Call the service function
+//         const matchesData = await matchService.listMatches({
+//             requesterId,
+//             tournamentId,
+//             status,
+//             scope,
+//             page: Number(page),
+//             limit: Number(limit),
+//         });
+
+//         res.json({
+//             success: true,
+//             ...matchesData,
+//         });
+//     } catch (error) {
+//         console.error("List Matches Error:", error);
+//         res.status(500).json({
+//             success: false,
+//             message: error.message || "Something went wrong",
+//         });
+//     }
+// };
+
+
 export const listMatches = async (req, res) => {
     try {
         const {
@@ -758,9 +795,13 @@ export const listMatches = async (req, res) => {
             scope = "all", // all | my
             page = 1,
             limit = 10,
+            // Nearby filter (optional): latitude, longitude, radiusKm -> read by parseGeoFilter
         } = req.query;
 
         const requesterId = req.user?.id;
+
+        // null when no coordinates were sent; throws a geo error when they are invalid
+        const geo = parseGeoFilter(req.query);
 
         // Call the service function
         const matchesData = await matchService.listMatches({
@@ -770,6 +811,7 @@ export const listMatches = async (req, res) => {
             scope,
             page: Number(page),
             limit: Number(limit),
+            geo,
         });
 
         res.json({
@@ -777,6 +819,9 @@ export const listMatches = async (req, res) => {
             ...matchesData,
         });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.error("List Matches Error:", error);
         res.status(500).json({
             success: false,

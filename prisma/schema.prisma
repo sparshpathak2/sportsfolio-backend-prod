@@ -109,6 +109,10 @@ model User {
   profileImage String?
   fcmToken     String?
 
+  // Optional home location. Never returned by list or by-id APIs (their selects are explicit).
+  latitude  Float?
+  longitude Float?
+
   // organizedTournaments Tournament[]   @relation("TournamentOrganizer")
   sportProfiles        SportProfile[]
   sessions             Session[]
@@ -147,6 +151,8 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([latitude, longitude])
 }
 
 model Sport {
@@ -187,6 +193,10 @@ model Team {
   city        String?
   isTemporary Boolean @default(false)
 
+   // Optional base location of the team (rounded to ~1 km when saved)
+  latitude  Float?
+  longitude Float?
+
   members   TeamMember[]
   favorites FavoriteTeam[]
 
@@ -207,6 +217,8 @@ model Team {
   createdAt         DateTime           @default(now())
   bracketNodes      BracketNode[]
   matchParticipants MatchParticipant[]
+
+  @@index([latitude, longitude])
 }
 
 model TeamMember {
@@ -906,6 +918,25 @@ model Asset {
   @@index([entityType, entityId])
 }
 
+// model Location {
+//   id      String  @id @default(cuid())
+//   name    String
+//   address String
+//   city    String?
+//   state   String?
+//   country String?
+//   zipCode String?
+
+//   createdAt DateTime @default(now())
+//   updatedAt DateTime @updatedAt
+
+//   tournaments Tournament[]
+//   matches     Match[]
+//   courtStats  CourtStats[]
+
+//   @@unique([name, address], name: "name_address")
+// }
+
 model Location {
   id      String  @id @default(cuid())
   name    String
@@ -915,6 +946,11 @@ model Location {
   country String?
   zipCode String?
 
+  // Coordinates (decimal degrees). Nullable so existing rows keep working until backfilled.
+  latitude  Float?
+  longitude Float?
+  placeId   String? // optional Google Place ID
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -923,6 +959,7 @@ model Location {
   courtStats  CourtStats[]
 
   @@unique([name, address], name: "name_address")
+  @@index([latitude, longitude])
 }
 
 model TournamentRequest {

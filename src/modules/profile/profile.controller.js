@@ -1,4 +1,5 @@
 import * as profileService from "./profile.service.js";
+import { isGeoError } from "../../utils/geoFilter.utils.js";
 
 export const getUserProfile = async (req, res) => {
     try {
@@ -24,6 +25,38 @@ export const getUserProfile = async (req, res) => {
 };
 
 
+// export const updateUserProfile = async (req, res) => {
+//     try {
+//         const userId = req.user?.id;
+
+//         if (!userId) {
+//             return res.status(401).json({ message: "Unauthorized" });
+//         }
+
+//         const updatedProfile = await profileService.updateUserProfile(
+//             userId,
+//             req.body
+//         );
+
+//         return res.status(200).json({
+//             message: "Profile updated successfully",
+//             user: updatedProfile,
+//         });
+//     } catch (error) {
+//         console.error("Update profile error:", error);
+
+//         if (error.message === "NO_FIELDS_TO_UPDATE") {
+//             return res.status(400).json({ message: "No fields provided to update" });
+//         }
+
+//         return res.status(500).json({
+//             message: "Failed to update profile",
+//         });
+//     }
+// };
+
+
+
 export const updateUserProfile = async (req, res) => {
     try {
         const userId = req.user?.id;
@@ -42,18 +75,19 @@ export const updateUserProfile = async (req, res) => {
             user: updatedProfile,
         });
     } catch (error) {
-        console.error("Update profile error:", error);
-
         if (error.message === "NO_FIELDS_TO_UPDATE") {
             return res.status(400).json({ message: "No fields provided to update" });
         }
+
+        // INVALID_COORDINATES | COORDINATES_INCOMPLETE -> client mistake
+        if (isGeoError(error)) {
+            return res.status(400).json({ message: error.message });
+        }
+
+        console.error("Update profile error:", error);
 
         return res.status(500).json({
             message: "Failed to update profile",
         });
     }
 };
-
-
-
-

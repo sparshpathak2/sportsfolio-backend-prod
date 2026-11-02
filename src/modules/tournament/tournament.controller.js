@@ -1,5 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import * as tournamentService from "./tournament.service.js";
+import { parseGeoFilter, isGeoError } from "../../utils/geoFilter.utils.js";
 
 const parseIfString = (value) => {
     if (!value) return null;
@@ -191,12 +192,29 @@ export const updateTournament = async (req, res) => {
     }
 };
 
+
 // export const listTournaments = async (req, res) => {
-//     // console.log("req.header at listTournaments:", req.headers)
 //     try {
-//         const tournaments = await tournamentService.listTournaments(req.user?.id);
-//         res.json({ success: true, data: tournaments });
+//         const {
+//             status,
+//             scope = "all",        // all | my
+//             visibility,           // public | private
+//             page = 1,
+//             limit = 10,
+//         } = req.query;
+
+//         const tournaments = await tournamentService.listTournaments({
+//             requesterId: req.user?.id,
+//             status,
+//             scope,
+//             visibility,
+//             page: Number(page),
+//             limit: Number(limit),
+//         });
+
+//         res.json({ success: true, ...tournaments });
 //     } catch (error) {
+//         console.log(`Error getting tournaments:`, error)
 //         res.status(500).json({ success: false, message: error.message });
 //     }
 // };
@@ -209,7 +227,11 @@ export const listTournaments = async (req, res) => {
             visibility,           // public | private
             page = 1,
             limit = 10,
+            // Nearby filter (optional): latitude, longitude, radiusKm -> read by parseGeoFilter
         } = req.query;
+
+        // null when no coordinates were sent; throws a geo error when they are invalid
+        const geo = parseGeoFilter(req.query);
 
         const tournaments = await tournamentService.listTournaments({
             requesterId: req.user?.id,
@@ -218,24 +240,47 @@ export const listTournaments = async (req, res) => {
             visibility,
             page: Number(page),
             limit: Number(limit),
+            geo,
         });
 
         res.json({ success: true, ...tournaments });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.log(`Error getting tournaments:`, error)
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
 
+// export const getMyTournaments = async (req, res) => {
+//     try {
+//         const tournaments = await tournamentService.getMyTournaments(req.user.id);
+//         res.json({
+//             success: true,
+//             data: tournaments,
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const getMyTournaments = async (req, res) => {
     try {
-        const tournaments = await tournamentService.getMyTournaments(req.user.id);
+        const geo = parseGeoFilter(req.query);
+        const tournaments = await tournamentService.getMyTournaments(req.user.id, geo);
         res.json({
             success: true,
             data: tournaments,
         });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         res.status(500).json({
             success: false,
             message: error.message,
@@ -243,14 +288,33 @@ export const getMyTournaments = async (req, res) => {
     }
 };
 
+// export const getPublicTournaments = async (req, res) => {
+//     try {
+//         const tournaments = await tournamentService.getPublicTournaments(req.user?.id);
+//         res.json({
+//             success: true,
+//             data: tournaments,
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const getPublicTournaments = async (req, res) => {
     try {
-        const tournaments = await tournamentService.getPublicTournaments(req.user?.id);
+        const geo = parseGeoFilter(req.query);
+        const tournaments = await tournamentService.getPublicTournaments(req.user?.id, geo);
         res.json({
             success: true,
             data: tournaments,
         });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         res.status(500).json({
             success: false,
             message: error.message,
@@ -287,13 +351,36 @@ export const getTournament = async (req, res) => {
     }
 };
 
+// export const getTrendingTournaments = async (req, res) => {
+//     try {
+//         const { limit = 10 } = req.query;
+
+//         const tournaments = await tournamentService.getTrendingTournaments({
+//             limit: Number(limit),
+//             requesterId: req.user?.id,
+//         });
+
+//         res.json({
+//             success: true,
+//             data: tournaments,
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const getTrendingTournaments = async (req, res) => {
     try {
         const { limit = 10 } = req.query;
+        const geo = parseGeoFilter(req.query);
 
         const tournaments = await tournamentService.getTrendingTournaments({
             limit: Number(limit),
             requesterId: req.user?.id,
+            geo,
         });
 
         res.json({
@@ -301,6 +388,9 @@ export const getTrendingTournaments = async (req, res) => {
             data: tournaments,
         });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         res.status(500).json({
             success: false,
             message: error.message,
@@ -308,28 +398,28 @@ export const getTrendingTournaments = async (req, res) => {
     }
 };
 
-export const getDiscoverTournaments = async (req, res) => {
-    try {
-        const { page = 1, limit = 10 } = req.query;
+// export const getDiscoverTournaments = async (req, res) => {
+//     try {
+//         const { page = 1, limit = 10 } = req.query;
 
-        if (!req.user?.id) {
-            return res.status(401).json({
-                success: false,
-                message: "Authentication required",
-            });
-        }
+//         if (!req.user?.id) {
+//             return res.status(401).json({
+//                 success: false,
+//                 message: "Authentication required",
+//             });
+//         }
 
-        const tournaments = await tournamentService.getDiscoverTournaments({
-            requesterId: req.user.id,
-            page: Number(page),
-            limit: Number(limit),
-        });
+//         const tournaments = await tournamentService.getDiscoverTournaments({
+//             requesterId: req.user.id,
+//             page: Number(page),
+//             limit: Number(limit),
+//         });
 
-        res.json({ success: true, ...tournaments });
-    } catch (error) {
-        res.status(500).json({ success: false, message: error.message });
-    }
-};
+//         res.json({ success: true, ...tournaments });
+//     } catch (error) {
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
 
 
 // export const updateTournament = async (req, res) => {
@@ -394,6 +484,34 @@ export const getDiscoverTournaments = async (req, res) => {
 //     }
 // };
 
+export const getDiscoverTournaments = async (req, res) => {
+    try {
+        const { page = 1, limit = 10 } = req.query;
+
+        if (!req.user?.id) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required",
+            });
+        }
+
+        const geo = parseGeoFilter(req.query);
+
+        const tournaments = await tournamentService.getDiscoverTournaments({
+            requesterId: req.user.id,
+            page: Number(page),
+            limit: Number(limit),
+            geo,
+        });
+
+        res.json({ success: true, ...tournaments });
+    } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
+        res.status(500).json({ success: false, message: error.message });
+    }
+};
 
 export const deleteTournament = async (req, res) => {
     try {

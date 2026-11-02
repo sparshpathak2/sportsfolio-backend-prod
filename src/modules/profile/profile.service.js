@@ -1,5 +1,6 @@
 import prisma from "../../lib/prisma.js";
 import { getBadmintonAchievements } from "../achievement/achievement.service.js";
+import { parseGeoFilter } from "../../utils/geoFilter.utils.js";
 
 // Helper to calculate stats for a specific game type
 const calculateSportStats = async (userId, sportCode, gameType = null) => {
@@ -497,11 +498,119 @@ const generateUniqueUsername = async (base) => {
     return username;
 };
 
+// export const updateUserProfile = async (userId, data) => {
+//     const { name, username, city, profileImage, sportProfiles } = data;
+
+//     // Optional: prevent empty update
+//     if (!name && !username && !city && !profileImage && !sportProfiles) {
+//         throw new Error("NO_FIELDS_TO_UPDATE");
+//     }
+
+//     // Auto-generate username on first update if user has none and didn't provide one
+//     let resolvedUsername = username;
+//     if (!resolvedUsername) {
+//         const currentUser = await prisma.user.findUnique({
+//             where: { id: userId },
+//             select: { username: true, name: true },
+//         });
+//         if (!currentUser?.username) {
+//             const base = name || currentUser?.name || "user";
+//             resolvedUsername = await generateUniqueUsername(base);
+//         }
+//     }
+
+//     // If a username was explicitly provided, silently skip it if already taken
+//     if (username) {
+//         const existingUser = await prisma.user.findFirst({
+//             where: { username, NOT: { id: userId } },
+//         });
+//         if (existingUser) {
+//             resolvedUsername = undefined;
+//         }
+//     }
+
+//     // Update in transaction if we have sport profiles to update
+//     const updatedUser = await prisma.$transaction(async (tx) => {
+//         // Update user basic info
+//         if (name || resolvedUsername || city || profileImage) {
+//             await tx.user.update({
+//                 where: { id: userId },
+//                 data: {
+//                     ...(name !== undefined && { name }),
+//                     ...(resolvedUsername !== undefined && { username: resolvedUsername }),
+//                     ...(city !== undefined && { city }),
+//                     ...(profileImage !== undefined && { profileImage }),
+//                 }
+//             });
+//         }
+
+//         // Update sport profiles if provided
+//         if (sportProfiles && Array.isArray(sportProfiles)) {
+//             for (const profile of sportProfiles) {
+//                 await tx.sportProfile.upsert({
+//                     where: {
+//                         userId_sportCode: {
+//                             userId,
+//                             sportCode: profile.sportCode
+//                         }
+//                     },
+//                     update: {
+//                         avatarUrl: profile.avatarUrl,
+//                         bio: profile.bio
+//                     },
+//                     create: {
+//                         userId,
+//                         sportCode: profile.sportCode,
+//                         avatarUrl: profile.avatarUrl,
+//                         bio: profile.bio,
+//                         matchesPlayed: 0,
+//                         wins: 0,
+//                         losses: 0
+//                     }
+//                 });
+//             }
+//         }
+
+//         // Return updated user with same structure as before
+//         return tx.user.findUnique({
+//             where: { id: userId },
+//             select: {
+//                 id: true,
+//                 name: true,
+//                 username: true,
+//                 phone: true,
+//                 city: true,
+//                 profileImage: true,
+//             }
+//         });
+//     });
+
+//     return updatedUser;
+// };
+
 export const updateUserProfile = async (userId, data) => {
     const { name, username, city, profileImage, sportProfiles } = data;
 
+    // Home location: latitude + longitude together, or neither.
+    // Both null clears the saved location.
+    const hasLocation = data.latitude !== undefined || data.longitude !== undefined;
+    const clearHome = data.latitude === null && data.longitude === null;
+
+    let home = null;
+    if (hasLocation && !clearHome) {
+        // Validates range, numeric values, rejects 0,0.
+        // Throws COORDINATES_INCOMPLETE / INVALID_COORDINATES.
+        home = parseGeoFilter({ latitude: data.latitude, longitude: data.longitude });
+        if (!home) throw new Error("COORDINATES_INCOMPLETE"); // e.g. both empty strings
+        // Privacy: store ~1 km precision only (2 decimals), never an exact address.
+        home = {
+            latitude: Math.round(home.latitude * 100) / 100,
+            longitude: Math.round(home.longitude * 100) / 100,
+        };
+    }
+
     // Optional: prevent empty update
-    if (!name && !username && !city && !profileImage && !sportProfiles) {
+    if (!name && !username && !city && !profileImage && !sportProfiles && !hasLocation) {
         throw new Error("NO_FIELDS_TO_UPDATE");
     }
 
@@ -531,7 +640,7 @@ export const updateUserProfile = async (userId, data) => {
     // Update in transaction if we have sport profiles to update
     const updatedUser = await prisma.$transaction(async (tx) => {
         // Update user basic info
-        if (name || resolvedUsername || city || profileImage) {
+        if (name || resolvedUsername || city || profileImage || home || clearHome) {
             await tx.user.update({
                 where: { id: userId },
                 data: {
@@ -539,6 +648,8 @@ export const updateUserProfile = async (userId, data) => {
                     ...(resolvedUsername !== undefined && { username: resolvedUsername }),
                     ...(city !== undefined && { city }),
                     ...(profileImage !== undefined && { profileImage }),
+                    ...(home && { latitude: home.latitude, longitude: home.longitude }),
+                    ...(clearHome && { latitude: null, longitude: null }),
                 }
             });
         }
@@ -570,7 +681,9 @@ export const updateUserProfile = async (userId, data) => {
             }
         }
 
-        // Return updated user with same structure as before
+        // Return updated user with same structure as before.
+        // latitude/longitude are returned here because the caller is the owner;
+        // getUserProfile (readable by anyone) deliberately does not return them.
         return tx.user.findUnique({
             where: { id: userId },
             select: {
@@ -580,6 +693,8 @@ export const updateUserProfile = async (userId, data) => {
                 phone: true,
                 city: true,
                 profileImage: true,
+                latitude: true,
+                longitude: true,
             }
         });
     });

@@ -1,9 +1,35 @@
 import * as teamService from "./team.service.js";
 import prisma from "../../lib/prisma.js"
+import { parseGeoFilter, parseLocationBy, isGeoError } from "../../utils/geoFilter.utils.js";
+
+// export const createTeam = async (req, res) => {
+//     try {
+//         const { name, sportCode, logo, city } = req.body;
+//         const ownerUserId = req.user.id; // ✅ Always use authenticated user as owner
+
+//         const team = await teamService.createTeam({
+//             name,
+//             sportCode,
+//             ownerUserId,
+//             logo,
+//             city,
+//         });
+
+//         res.status(201).json({
+//             success: true,
+//             data: team,
+//         });
+//     } catch (error) {
+//         res.status(400).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
 
 export const createTeam = async (req, res) => {
     try {
-        const { name, sportCode, logo, city } = req.body;
+        const { name, sportCode, logo, city, latitude, longitude } = req.body;
         const ownerUserId = req.user.id; // ✅ Always use authenticated user as owner
 
         const team = await teamService.createTeam({
@@ -12,6 +38,8 @@ export const createTeam = async (req, res) => {
             ownerUserId,
             logo,
             city,
+            latitude,
+            longitude,
         });
 
         res.status(201).json({
@@ -130,6 +158,61 @@ export const createTeam = async (req, res) => {
 //     }
 // };
 
+// export const listTeams = async (req, res) => {
+//     try {
+//         const {
+//             page = 1,
+//             limit = 20,
+//             query,
+//             city,
+//             sportCode,
+//             tournamentId,
+//             scope = "all", // 👈 NEW
+//         } = req.query;
+
+//         let cityFilter = city;
+
+//         if (tournamentId) {
+//             const tournament = await prisma.tournament.findUnique({
+//                 where: { id: tournamentId },
+//                 select: { city: true },
+//             });
+
+//             if (!tournament) {
+//                 return res
+//                     .status(404)
+//                     .json({ success: false, message: "TOURNAMENT_NOT_FOUND" });
+//             }
+
+//             cityFilter = tournament.city;
+//         }
+
+//         const searchQuery =
+//             query && query.toLowerCase() !== "null" ? query : undefined;
+
+//         const { teams, totalCount } = await teamService.listTeams({
+//             city: cityFilter,
+//             query: searchQuery,
+//             sportCode,
+//             page: Number(page),
+//             limit: Number(limit),
+//             scope,
+//             userId: req.user?.id, // 👈 needed for "my"
+//         });
+
+//         res.json({
+//             success: true,
+//             count: totalCount,
+//             page: Number(page),
+//             limit: Number(limit),
+//             data: teams,
+//         });
+//     } catch (error) {
+//         console.error("List Teams Error:", error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
+
 export const listTeams = async (req, res) => {
     try {
         const {
@@ -140,6 +223,7 @@ export const listTeams = async (req, res) => {
             sportCode,
             tournamentId,
             scope = "all", // 👈 NEW
+            location,      // text search on city / venue name / address / city
         } = req.query;
 
         let cityFilter = city;
@@ -162,6 +246,15 @@ export const listTeams = async (req, res) => {
         const searchQuery =
             query && query.toLowerCase() !== "null" ? query : undefined;
 
+        const locationText =
+            typeof location === "string" && location.trim() && location.toLowerCase() !== "null"
+                ? location.trim().slice(0, 100)
+                : undefined;
+
+        // Nearby filter (optional): latitude, longitude, radiusKm, locationBy
+        const geo = parseGeoFilter(req.query);
+        const locationBy = parseLocationBy(req.query.locationBy);
+
         const { teams, totalCount } = await teamService.listTeams({
             city: cityFilter,
             query: searchQuery,
@@ -170,6 +263,9 @@ export const listTeams = async (req, res) => {
             limit: Number(limit),
             scope,
             userId: req.user?.id, // 👈 needed for "my"
+            location: locationText,
+            geo,
+            locationBy,
         });
 
         res.json({
@@ -180,6 +276,9 @@ export const listTeams = async (req, res) => {
             data: teams,
         });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.error("List Teams Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
@@ -204,11 +303,37 @@ export const getTeamById = async (req, res) => {
     }
 };
 
+// export const updateTeam = async (req, res) => {
+//     try {
+//         const teamId = req.params.id;
+//         const userId = req.user.id;
+//         const { name, logo, city } = req.body;
+
+//         const team = await teamService.updateTeam({
+//             teamId,
+//             userId,
+//             name,
+//             logo,
+//             city,
+//         });
+
+//         res.status(200).json({
+//             success: true,
+//             data: team,
+//         });
+//     } catch (error) {
+//         res.status(400).json({
+//             success: false,
+//             message: error.message,
+//         });
+//     }
+// };
+
 export const updateTeam = async (req, res) => {
     try {
         const teamId = req.params.id;
         const userId = req.user.id;
-        const { name, logo, city } = req.body;
+        const { name, logo, city, latitude, longitude } = req.body;
 
         const team = await teamService.updateTeam({
             teamId,
@@ -216,6 +341,8 @@ export const updateTeam = async (req, res) => {
             name,
             logo,
             city,
+            latitude,
+            longitude,
         });
 
         res.status(200).json({

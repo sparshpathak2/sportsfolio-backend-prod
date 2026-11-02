@@ -1,5 +1,10 @@
 import prisma from "../../lib/prisma.js";
 import { getBadmintonAchievements } from "../achievement/achievement.service.js";
+import {
+    findLocationsWithinRadius,
+    findUserIdsWithinRadius,
+    MIN_HOME_RADIUS_KM,
+} from "../../utils/geoFilter.utils.js";
 
 // export const createUser = async ({ phone, email, name }) => {
 //     if (!phone) throw new Error("PHONE_REQUIRED");
@@ -142,7 +147,96 @@ export const createUser = async ({ phone, name, email }) => {
 //     return { users: usersWithSport, totalCount };
 // };
 
-export const listUsers = async ({ city, query, page = 1, limit = 20, includeArchived = false, requestingUserId = null } = {}) => {
+// export const listUsers = async ({ city, query, page = 1, limit = 20, includeArchived = false, requestingUserId = null } = {}) => {
+//     const where = {};
+
+//     if (!includeArchived) {
+//         where.isArchived = false;
+//     }
+
+//     if (city) where.city = city;
+
+//     const searchQuery = query?.trim();
+
+//     if (searchQuery) {
+//         where.OR = [
+//             { name: { contains: searchQuery, mode: "insensitive" } },
+//             { username: { contains: searchQuery, mode: "insensitive" } },
+//             { email: { contains: searchQuery, mode: "insensitive" } },
+//         ];
+//     }
+
+//     const skip = (page - 1) * limit;
+
+//     // Fetch favorite user IDs for the requesting user
+//     let favoriteUserIds = new Set();
+//     if (requestingUserId) {
+//         const favorites = await prisma.favoriteUser.findMany({
+//             where: { userId: requestingUserId },
+//             select: { favoriteUserId: true },
+//         });
+//         favoriteUserIds = new Set(favorites.map((f) => f.favoriteUserId));
+//     }
+
+//     const [users, totalCount] = await Promise.all([
+//         prisma.user.findMany({
+//             where,
+//             select: {
+//                 id: true,
+//                 name: true,
+//                 username: true,
+//                 profileImage: true,
+//                 city: true,
+//                 isArchived: true,
+//                 sportProfiles: {
+//                     select: {
+//                         matchesPlayed: true,
+//                         wins: true,
+//                         losses: true,
+//                     },
+//                 },
+//             },
+//             skip,
+//             take: limit,
+//             orderBy: { name: "asc" },
+//         }),
+//         prisma.user.count({ where }),
+//     ]);
+
+//     const formattedUsers = users.map((user) => {
+//         const totalMatches = user.sportProfiles.reduce((sum, sp) => sum + sp.matchesPlayed, 0);
+//         const totalWins = user.sportProfiles.reduce((sum, sp) => sum + sp.wins, 0);
+//         const totalLosses = user.sportProfiles.reduce((sum, sp) => sum + sp.losses, 0);
+
+//         return {
+//             id: user.id,
+//             name: user.name,
+//             username: user.username,
+//             profileImage: user.profileImage,
+//             city: user.city,
+//             status: user.isArchived ? "ARCHIVED" : "ACTIVE",
+//             isFavorite: favoriteUserIds.has(user.id),
+//             stats: {
+//                 totalMatches,
+//                 totalWins,
+//                 totalLosses,
+//             },
+//         };
+//     });
+
+//     return { users: formattedUsers, totalCount };
+// };
+
+export const listUsers = async ({
+    city,
+    query,
+    page = 1,
+    limit = 20,
+    includeArchived = false,
+    requestingUserId = null,
+    geo = null,
+    locationBy = ["home", "venues"],
+} = {}) => {
     const where = {};
 
     if (!includeArchived) {
@@ -158,6 +252,55 @@ export const listUsers = async ({ city, query, page = 1, limit = 20, includeArch
             { name: { contains: searchQuery, mode: "insensitive" } },
             { username: { contains: searchQuery, mode: "insensitive" } },
             { email: { contains: searchQuery, mode: "insensitive" } },
+        ];
+    }
+
+    /* ------------------
+       NEARBY FILTER (latitude, longitude, radiusKm, locationBy)
+       locationBy is any combination; a user matching ANY chosen mode is returned:
+         home   -> the user's own saved coordinates are inside the radius
+         venues -> the user played a match, or joined a tournament (directly or
+                   through a team), at a venue inside the radius
+         city   -> the user's city equals the city of the nearest venue in range
+       Goes into AND so it never clashes with the search OR above.
+    ------------------ */
+    if (geo) {
+        const clauses = [];
+
+        const needsVenues = locationBy.includes("venues") || locationBy.includes("city");
+        const nearbyLocations = needsVenues ? await findLocationsWithinRadius(prisma, geo) : [];
+        const nearbyLocationIds = nearbyLocations.map((l) => l.id);
+
+        if (locationBy.includes("home")) {
+            // Privacy: never match home locations with a tiny radius
+            const homeGeo = { ...geo, radiusKm: Math.max(geo.radiusKm, MIN_HOME_RADIUS_KM) };
+            const homeIds = await findUserIdsWithinRadius(prisma, homeGeo, { includeArchived });
+            if (homeIds.length) clauses.push({ id: { in: homeIds } });
+        }
+
+        if (locationBy.includes("venues") && nearbyLocationIds.length) {
+            const tournamentAtNearbyVenue = {
+                tournament: { locations: { some: { id: { in: nearbyLocationIds } } } },
+            };
+            clauses.push(
+                // played a match at a nearby venue
+                { matchParticipations: { some: { match: { locationId: { in: nearbyLocationIds } } } } },
+                // joined a tournament at a nearby venue (as a player)
+                { tournamentParticipations: { some: tournamentAtNearbyVenue } },
+                // joined a tournament at a nearby venue through a team
+                { teamMemberships: { some: { team: { tournamentParticipations: { some: tournamentAtNearbyVenue } } } } },
+            );
+        }
+
+        if (locationBy.includes("city")) {
+            const nearestCity = nearbyLocations.find((l) => l.city)?.city;
+            if (nearestCity) clauses.push({ city: { equals: nearestCity, mode: "insensitive" } });
+        }
+
+        // Nothing matched in any chosen mode -> empty result (not "everyone")
+        where.AND = [
+            ...(where.AND || []),
+            clauses.length ? { OR: clauses } : { id: { in: [] } },
         ];
     }
 

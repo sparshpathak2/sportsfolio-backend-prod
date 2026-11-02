@@ -1,5 +1,6 @@
 import * as userService from "./user.service.js";
 import prisma from "../../lib/prisma.js";
+import { parseGeoFilter, parseLocationBy, isGeoError } from "../../utils/geoFilter.utils.js";
 
 // export const createUser = async (req, res) => {
 //     try {
@@ -123,6 +124,62 @@ export const createUser = async (req, res) => {
 //     }
 // };
 
+// export const listUsers = async (req, res) => {
+//     try {
+//         const { page = 1, limit = 20, query, city, tournamentId, includeArchived } = req.query;
+
+//         let cityFilter = city;
+
+//         // If tournamentId is provided, override city with tournament city
+//         if (tournamentId) {
+//             const tournament = await prisma.tournament.findUnique({
+//                 where: { id: tournamentId },
+//                 select: { city: true },
+//             });
+//             if (!tournament) {
+//                 return res.status(404).json({ success: false, message: "TOURNAMENT_NOT_FOUND" });
+//             }
+//             cityFilter = tournament.city;
+//         }
+
+//         let searchQuery = query;
+//         if (!searchQuery || searchQuery.toLowerCase() === "null") {
+//             searchQuery = undefined;
+//         }
+
+//         const { users, totalCount } = await userService.listUsers({
+//             city: cityFilter,
+//             query: searchQuery,
+//             page: Number(page),
+//             limit: Number(limit),
+//             includeArchived: includeArchived === 'true',
+//             requestingUserId: req.user?.id ?? null,
+//         });
+
+//         res.json({
+//             success: true,
+//             count: totalCount,
+//             page: Number(page),
+//             limit: Number(limit),
+//             data: users,
+//         });
+//     } catch (error) {
+//         console.error("List Users Error:", error);
+//         res.status(500).json({ success: false, message: error.message });
+//     }
+// };
+
+
+// export const getUserById = async (req, res) => {
+//     try {
+//         const user = await userService.getUserById(req.params.id);
+//         res.json({ success: true, data: user });
+//     } catch (error) {
+//         res.status(404).json({ success: false, message: error.message });
+//     }
+// };
+
+
 export const listUsers = async (req, res) => {
     try {
         const { page = 1, limit = 20, query, city, tournamentId, includeArchived } = req.query;
@@ -146,6 +203,10 @@ export const listUsers = async (req, res) => {
             searchQuery = undefined;
         }
 
+        // Nearby filter (optional): latitude, longitude, radiusKm, locationBy
+        const geo = parseGeoFilter(req.query);
+        const locationBy = parseLocationBy(req.query.locationBy);
+
         const { users, totalCount } = await userService.listUsers({
             city: cityFilter,
             query: searchQuery,
@@ -153,6 +214,8 @@ export const listUsers = async (req, res) => {
             limit: Number(limit),
             includeArchived: includeArchived === 'true',
             requestingUserId: req.user?.id ?? null,
+            geo,
+            locationBy,
         });
 
         res.json({
@@ -163,20 +226,14 @@ export const listUsers = async (req, res) => {
             data: users,
         });
     } catch (error) {
+        if (isGeoError(error)) {
+            return res.status(400).json({ success: false, message: error.message });
+        }
         console.error("List Users Error:", error);
         res.status(500).json({ success: false, message: error.message });
     }
 };
 
-
-// export const getUserById = async (req, res) => {
-//     try {
-//         const user = await userService.getUserById(req.params.id);
-//         res.json({ success: true, data: user });
-//     } catch (error) {
-//         res.status(404).json({ success: false, message: error.message });
-//     }
-// };
 
 export const getUserById = async (req, res) => {
     try {
